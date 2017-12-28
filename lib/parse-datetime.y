@@ -569,8 +569,8 @@ debug_print_relative_time (char const *item, parser_control const *pc)
 %parse-param { parser_control *pc }
 %lex-param { parser_control *pc }
 
-/* This grammar has 35 shift/reduce conflicts.  */
-%expect 35
+/* This grammar has 39 shift/reduce conflicts.  */
+%expect 39
 
 %union
 {
@@ -666,12 +666,12 @@ item:
 datetime:
     iso_8601_date 'T' iso_8601_time
   | iso_8601_date iso_8601_time
-  | number 'T' number { pc->dates_seen--; pc->times_seen--; }
-  | number number { pc->dates_seen--; pc->times_seen--; }
+  | number 'T' number o_zone_offset { pc->dates_seen--; pc->times_seen--; }
+  | number number o_zone_offset { pc->dates_seen--; pc->times_seen--; }
   | number 'T' iso_8601_time { pc->dates_seen--; }
   | number iso_8601_time { pc->dates_seen--; }
-  | iso_8601_date 'T' number { pc->times_seen--; }
-  | iso_8601_date number { pc->times_seen--; }
+  | iso_8601_date 'T' number o_zone_offset { pc->times_seen--; }
+  | iso_8601_date number o_zone_offset { pc->times_seen--; }
   ;
 
 time:
@@ -696,7 +696,19 @@ time:
 iso_8601_time:
     tUNUMBER zone_offset
       {
-        set_hhmmss (pc, $1.value, 0, 0, 0);
+        intmax_t hours = 0;
+        intmax_t minutes = 0;
+        intmax_t seconds = 0;
+
+        intmax_t remainder = $1.value;
+
+        seconds = remainder % 100;
+        remainder = remainder / 100;
+        minutes = remainder % 100;
+        remainder = remainder / 100;
+        hours = remainder / 100;
+
+        set_hhmmss (pc, hours, minutes, seconds, 0);
         pc->meridian = MER24;
       }
   | tUNUMBER ':' tUNUMBER o_zone_offset
@@ -1415,6 +1427,7 @@ yylex (union YYSTYPE *lvalp, parser_control *pc)
 {
   unsigned char c;
 
+  /* pc->parse_datetime_debug = true; */
   for (;;)
     {
       while (c = *pc->input, c_isspace (c))
