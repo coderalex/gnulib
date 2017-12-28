@@ -569,8 +569,8 @@ debug_print_relative_time (char const *item, parser_control const *pc)
 %parse-param { parser_control *pc }
 %lex-param { parser_control *pc }
 
-/* This grammar has 31 shift/reduce conflicts.  */
-%expect 31
+/* This grammar has 35 shift/reduce conflicts.  */
+%expect 35
 
 %union
 {
@@ -664,11 +664,14 @@ item:
   ;
 
 datetime:
-    iso_8601_datetime
-  ;
-
-iso_8601_datetime:
     iso_8601_date 'T' iso_8601_time
+  | iso_8601_date iso_8601_time
+  | number 'T' number { pc->dates_seen--; pc->times_seen--; }
+  | number number { pc->dates_seen--; pc->times_seen--; }
+  | number 'T' iso_8601_time { pc->dates_seen--; }
+  | number iso_8601_time { pc->dates_seen--; }
+  | iso_8601_date 'T' number { pc->times_seen--; }
+  | iso_8601_date number { pc->times_seen--; }
   ;
 
 time:
