@@ -256,6 +256,36 @@ static int yylex (union YYSTYPE *, parser_control *);
 static int yyerror (parser_control const *, char const *);
 static bool time_zone_hhmm (parser_control *, textint, intmax_t);
 
+static bool
+digits_to_time (parser_control *pc, textint text_int)
+{
+  fputs("In digits_to_time\n", stderr);
+
+  if ( text_int.digits > 6 ) return false;
+
+  intmax_t remainder = text_int.value;
+
+  pc->hour = pc->minutes = pc->seconds.tv_sec =  pc->seconds.tv_nsec = 0;
+
+  if ( text_int.digits == 6 )
+    {
+      pc->seconds.tv_sec = remainder % 100;
+      pc->seconds.tv_nsec = 0;
+      remainder = remainder / 100;
+    }
+  if ( text_int.digits >= 4 )
+    {
+      pc->minutes = remainder % 100;
+      remainder = remainder / 100;
+    }
+
+  pc->hour = remainder;
+
+  pc->meridian = MER24;
+
+  return true;
+}
+
 /* Extract into *PC any date and time info from a string of digits
    of the form e.g., YYYYMMDD, YYMMDD, HHMM, HH (and sometimes YYY,
    YYYY, ...).  */
@@ -284,19 +314,7 @@ digits_to_date_time (parser_control *pc, textint text_int)
         {
           fprintf(stderr, "setting time to %ld\n", text_int.value);
           pc->times_seen++;
-          if (text_int.digits <= 2)
-            {
-              pc->hour = text_int.value;
-              pc->minutes = 0;
-            }
-          else
-            {
-              pc->hour = text_int.value / 100;
-              pc->minutes = text_int.value % 100;
-            }
-          pc->seconds.tv_sec = 0;
-          pc->seconds.tv_nsec = 0;
-          pc->meridian = MER24;
+          digits_to_time(pc, text_int);
         }
     }
 }
@@ -676,13 +694,9 @@ datetime:
 
 iso_8601_datetime:
     iso_8601_date 'T' iso_8601_time
-/*  | iso_8601_date iso_8601_time */;
-  | number 'T' number { pc->dates_seen--; pc->times_seen--; }
-/*  | number number { pc->dates_seen--; pc->times_seen--; } */
+  | number 'T' unsigned_timenumber { pc->dates_seen--; }
   | number 'T' iso_8601_time { pc->dates_seen--; }
-/*  | number iso_8601_time { pc->dates_seen--; } */
-  | iso_8601_date 'T' number { pc->times_seen--; }
-/*  | iso_8601_date number { pc->times_seen--; } */
+  | iso_8601_date 'T' unsigned_timenumber
   ;
 
 time:
@@ -707,34 +721,7 @@ time:
 iso_8601_time:
     tUNUMBER zone_offset
       {
-
-        intmax_t hours = 0;
-        intmax_t minutes = 0;
-        intmax_t seconds = 0;
-
-        fputs("In iso_8601_time / tUNUMBER zone_offset\n", stderr);
-
-        if ( $1.digits != 6 && $1.digits != 4 && $1.digits != 2 ) YYABORT;
-
-        intmax_t remainder = $1.value;
-
-        if ( $1.digits == 6 )
-          {
-            seconds = remainder % 100;
-            remainder = remainder / 100;
-          }
-        if ( $1.digits >= 4 )
-          {
-            minutes = remainder % 100;
-            remainder = remainder / 100;
-          }
-        if ( $1.digits >= 2 )
-          {
-            hours = remainder % 100;
-          }
-
-        set_hhmmss (pc, hours, minutes, seconds, 0);
-        pc->meridian = MER24;
+        digits_to_time (pc, $1);
       }
   | tUNUMBER ':' tUNUMBER o_zone_offset
       {
@@ -1021,9 +1008,26 @@ unsigned_seconds:
         $$.tv_sec = $1.value; $$.tv_nsec = 0; }
   ;
 
+unsigned_timenumber:
+   tUNUMBER
+    {
+      digits_to_time (pc, $1);
+    }
+   ;
+
 number:
     tUNUMBER
-      { fprintf(stderr, "In number with %ld; dates: %ld, times: %ld\n", $1.value, pc->dates_seen, pc->times_seen); digits_to_date_time (pc, $1); }
+      {
+        fprintf(stderr, "In number with %ld; dates: %ld, times: %ld\n", $1.value, pc->dates_seen, pc->times_seen);
+        if (pc->dates_seen)
+        {
+          if (! digits_to_time (pc, $1)) YYABORT;
+          pc->times_seen++;
+        }
+        else {
+          digits_to_date_time (pc, $1);
+        }
+      }
   ;
 
 hybrid:
