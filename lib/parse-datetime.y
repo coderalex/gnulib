@@ -1028,6 +1028,16 @@ unsigned_seconds:
 
 iso_8601_timenumber:
    number
+ | tUDECIMAL_NUMBER
+     {
+       textint timenumber;
+       if ($1.tv_sec >= 240000) YYABORT;
+       timenumber.digits = 6;
+       timenumber.value = $1.tv_sec;
+       timenumber.negative = false;
+       if (! digits_to_time(pc, timenumber)) YYABORT;
+       pc->seconds.tv_nsec = $1.tv_nsec;
+      }
    ;
 
 number:
