@@ -270,8 +270,10 @@ digits_to_date_time (parser_control *pc, textint text_int)
     }
   else
     {
-      if (4 < text_int.digits)
+      if (!pc->dates_seen && (4 < text_int.digits))
         {
+          fprintf(stderr, "dates seen: %ld\n", pc->dates_seen);
+          fprintf(stderr, "setting date to %ld\n", text_int.value);
           pc->dates_seen++;
           pc->day = text_int.value % 100;
           pc->month = (text_int.value / 100) % 100;
@@ -280,6 +282,7 @@ digits_to_date_time (parser_control *pc, textint text_int)
         }
       else
         {
+          fprintf(stderr, "setting time to %ld\n", text_int.value);
           pc->times_seen++;
           if (text_int.digits <= 2)
             {
@@ -569,8 +572,8 @@ debug_print_relative_time (char const *item, parser_control const *pc)
 %parse-param { parser_control *pc }
 %lex-param { parser_control *pc }
 
-/* This grammar has 39 shift/reduce conflicts.  */
-%expect 39
+/* This grammar has 33 shift/reduce conflicts.  */
+%expect 33
 
 %union
 {
@@ -664,14 +667,22 @@ item:
   ;
 
 datetime:
+    iso_8601_datetime
+      {
+         fputs("In iso_8601_datetime\n", stderr);
+      }
+  ;
+
+
+iso_8601_datetime:
     iso_8601_date 'T' iso_8601_time
-  | iso_8601_date iso_8601_time
-  | number 'T' number o_zone_offset { pc->dates_seen--; pc->times_seen--; }
-  | number number o_zone_offset { pc->dates_seen--; pc->times_seen--; }
+/*  | iso_8601_date iso_8601_time */;
+  | number 'T' number { pc->dates_seen--; pc->times_seen--; }
+/*  | number number { pc->dates_seen--; pc->times_seen--; } */
   | number 'T' iso_8601_time { pc->dates_seen--; }
-  | number iso_8601_time { pc->dates_seen--; }
-  | iso_8601_date 'T' number o_zone_offset { pc->times_seen--; }
-  | iso_8601_date number o_zone_offset { pc->times_seen--; }
+/*  | number iso_8601_time { pc->dates_seen--; } */
+  | iso_8601_date 'T' number { pc->times_seen--; }
+/*  | iso_8601_date number { pc->times_seen--; } */
   ;
 
 time:
@@ -696,17 +707,31 @@ time:
 iso_8601_time:
     tUNUMBER zone_offset
       {
+
         intmax_t hours = 0;
         intmax_t minutes = 0;
         intmax_t seconds = 0;
 
+        fputs("In iso_8601_time / tUNUMBER zone_offset\n", stderr);
+
+        if ( $1.digits != 6 && $1.digits != 4 && $1.digits != 2 ) YYABORT;
+
         intmax_t remainder = $1.value;
 
-        seconds = remainder % 100;
-        remainder = remainder / 100;
-        minutes = remainder % 100;
-        remainder = remainder / 100;
-        hours = remainder / 100;
+        if ( $1.digits == 6 )
+          {
+            seconds = remainder % 100;
+            remainder = remainder / 100;
+          }
+        if ( $1.digits >= 4 )
+          {
+            minutes = remainder % 100;
+            remainder = remainder / 100;
+          }
+        if ( $1.digits >= 2 )
+          {
+            hours = remainder % 100;
+          }
 
         set_hhmmss (pc, hours, minutes, seconds, 0);
         pc->meridian = MER24;
@@ -998,7 +1023,7 @@ unsigned_seconds:
 
 number:
     tUNUMBER
-      { digits_to_date_time (pc, $1); }
+      { fprintf(stderr, "In number with %ld; dates: %ld, times: %ld\n", $1.value, pc->dates_seen, pc->times_seen); digits_to_date_time (pc, $1); }
   ;
 
 hybrid:
@@ -1427,7 +1452,7 @@ yylex (union YYSTYPE *lvalp, parser_control *pc)
 {
   unsigned char c;
 
-  /* pc->parse_datetime_debug = true; */
+  pc->parse_datetime_debug = true;
   for (;;)
     {
       while (c = *pc->input, c_isspace (c))
