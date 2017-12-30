@@ -259,8 +259,6 @@ static bool time_zone_hhmm (parser_control *, textint, intmax_t);
 static bool
 digits_to_time (parser_control *pc, textint text_int)
 {
-  fputs("In digits_to_time\n", stderr);
-
   if ( text_int.digits > 6 ) return false;
 
   intmax_t remainder = text_int.value;
@@ -319,13 +317,10 @@ digits_to_date_time (parser_control *pc, textint text_int)
     {
       if (!pc->dates_seen && (4 < text_int.digits))
         {
-          fprintf(stderr, "dates seen: %ld\n", pc->dates_seen);
-          fprintf(stderr, "setting date to %ld\n", text_int.value);
           digits_to_date(pc, text_int);
         }
       else
         {
-          fprintf(stderr, "setting time to %ld\n", text_int.value);
           digits_to_time (pc, text_int);
         }
     }
@@ -696,9 +691,6 @@ item:
 
 datetime:
     iso_8601_datetime
-      {
-         fputs("In iso_8601_datetime\n", stderr);
-      }
   ;
 
 
@@ -1043,7 +1035,6 @@ iso_8601_timenumber:
 number:
     tUNUMBER
       {
-        fprintf(stderr, "In number with %ld; dates: %ld, times: %ld\n", $1.value, pc->dates_seen, pc->times_seen);
         if (pc->dates_seen)
         {
           if (! digits_to_time (pc, $1)) YYABORT;
@@ -1480,7 +1471,6 @@ yylex (union YYSTYPE *lvalp, parser_control *pc)
 {
   unsigned char c;
 
-  pc->parse_datetime_debug = true;
   for (;;)
     {
       while (c = *pc->input, c_isspace (c))
