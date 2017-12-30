@@ -284,23 +284,6 @@ digits_to_time (parser_control *pc, textint text_int)
   return true;
 }
 
-static bool
-digits_to_date (parser_control *pc, textint text_int)
-{
-  if (text_int.digits > 4)
-    {
-      pc->day = text_int.value % 100;
-      pc->month = (text_int.value / 100) % 100;
-      pc->year.value = text_int.value / 10000;
-      pc->year.digits = text_int.digits - 4;
-      pc->dates_seen++;
-      return true;
-    }
-    else {
-      return false;
-    }
-}
-
 /* Extract into *PC any date and time info from a string of digits
    of the form e.g., YYYYMMDD, YYMMDD, HHMM, HH (and sometimes YYY,
    YYYY, ...).  */
@@ -317,7 +300,11 @@ digits_to_date_time (parser_control *pc, textint text_int)
     {
       if (!pc->dates_seen && (4 < text_int.digits))
         {
-          digits_to_date(pc, text_int);
+          pc->dates_seen++;
+          pc->day = text_int.value % 100;
+          pc->month = (text_int.value / 100) % 100;
+          pc->year.value = text_int.value / 10000;
+          pc->year.digits = text_int.digits - 4;
         }
       else
         {
