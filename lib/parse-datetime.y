@@ -280,10 +280,27 @@ digits_to_time (parser_control *pc, textint text_int)
     }
 
   pc->hour = remainder;
-
   pc->meridian = MER24;
 
+  pc->times_seen++;
   return true;
+}
+
+static bool
+digits_to_date (parser_control *pc, textint text_int)
+{
+  if (text_int.digits > 4)
+    {
+      pc->day = text_int.value % 100;
+      pc->month = (text_int.value / 100) % 100;
+      pc->year.value = text_int.value / 10000;
+      pc->year.digits = text_int.digits - 4;
+      pc->dates_seen++;
+      return true;
+    }
+    else {
+      return false;
+    }
 }
 
 /* Extract into *PC any date and time info from a string of digits
@@ -304,17 +321,12 @@ digits_to_date_time (parser_control *pc, textint text_int)
         {
           fprintf(stderr, "dates seen: %ld\n", pc->dates_seen);
           fprintf(stderr, "setting date to %ld\n", text_int.value);
-          pc->dates_seen++;
-          pc->day = text_int.value % 100;
-          pc->month = (text_int.value / 100) % 100;
-          pc->year.value = text_int.value / 10000;
-          pc->year.digits = text_int.digits - 4;
+          digits_to_date(pc, text_int);
         }
       else
         {
           fprintf(stderr, "setting time to %ld\n", text_int.value);
-          pc->times_seen++;
-          digits_to_time(pc, text_int);
+          digits_to_time (pc, text_int);
         }
     }
 }
@@ -353,6 +365,7 @@ set_hhmmss (parser_control *pc, intmax_t hour, intmax_t minutes,
   pc->minutes = minutes;
   pc->seconds.tv_sec = sec;
   pc->seconds.tv_nsec = nsec;
+  pc->times_seen++;
 }
 
 /* Return a textual representation of the day ordinal/number values
@@ -642,12 +655,10 @@ items:
 item:
     datetime
       {
-        pc->times_seen++; pc->dates_seen++;
         debug_print_current_time (_("datetime"), pc);
       }
   | time
       {
-        pc->times_seen++;
         debug_print_current_time (_("time"), pc);
       }
   | local_zone
@@ -662,7 +673,6 @@ item:
       }
   | date
       {
-        pc->dates_seen++;
         debug_print_current_time (_("date"), pc);
       }
   | day
@@ -694,9 +704,9 @@ datetime:
 
 iso_8601_datetime:
     iso_8601_date 'T' iso_8601_time
-  | number 'T' unsigned_timenumber { pc->dates_seen--; }
-  | number 'T' iso_8601_time { pc->dates_seen--; }
-  | iso_8601_date 'T' unsigned_timenumber
+  | number 'T' iso_8601_timenumber
+  | number 'T' iso_8601_time
+  | iso_8601_date 'T' iso_8601_timenumber
   ;
 
 time:
@@ -829,6 +839,7 @@ day:
 date:
     tUNUMBER '/' tUNUMBER
       {
+        pc->dates_seen++;
         pc->month = $1.value;
         pc->day = $3.value;
       }
@@ -839,6 +850,7 @@ date:
            The goal in recognizing YYYY/MM/DD is solely to support legacy
            machine-generated dates like those in an RCS log listing.  If
            you want portability, use the ISO 8601 format.  */
+        pc->dates_seen++;
         if (4 <= $1.digits)
           {
             if (pc->parse_datetime_debug)
@@ -867,6 +879,7 @@ date:
       }
   | tUNUMBER tMONTH tSNUMBER
       {
+        pc->dates_seen++;
         /* E.g., 17-JUN-1992.  */
         pc->day = $1.value;
         pc->month = $2;
@@ -875,6 +888,7 @@ date:
       }
   | tMONTH tSNUMBER tSNUMBER
       {
+        pc->dates_seen++;
         /* E.g., JUN-17-1992.  */
         pc->month = $1;
         if (INT_SUBTRACT_WRAPV (0, $2.value, &pc->day)) YYABORT;
@@ -883,22 +897,26 @@ date:
       }
   | tMONTH tUNUMBER
       {
+        pc->dates_seen++;
         pc->month = $1;
         pc->day = $2.value;
       }
   | tMONTH tUNUMBER ',' tUNUMBER
       {
+        pc->dates_seen++;
         pc->month = $1;
         pc->day = $2.value;
         pc->year = $4;
       }
   | tUNUMBER tMONTH
       {
+        pc->dates_seen++;
         pc->day = $1.value;
         pc->month = $2;
       }
   | tUNUMBER tMONTH tUNUMBER
       {
+        pc->dates_seen++;
         pc->day = $1.value;
         pc->month = $2;
         pc->year = $3;
@@ -1008,11 +1026,8 @@ unsigned_seconds:
         $$.tv_sec = $1.value; $$.tv_nsec = 0; }
   ;
 
-unsigned_timenumber:
-   tUNUMBER
-    {
-      digits_to_time (pc, $1);
-    }
+iso_8601_timenumber:
+   number
    ;
 
 number:
@@ -1022,7 +1037,6 @@ number:
         if (pc->dates_seen)
         {
           if (! digits_to_time (pc, $1)) YYABORT;
-          pc->times_seen++;
         }
         else {
           digits_to_date_time (pc, $1);
