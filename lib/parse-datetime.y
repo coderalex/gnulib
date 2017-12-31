@@ -585,8 +585,8 @@ debug_print_relative_time (char const *item, parser_control const *pc)
 %parse-param { parser_control *pc }
 %lex-param { parser_control *pc }
 
-/* This grammar has 33 shift/reduce conflicts.  */
-%expect 33
+/* This grammar has 34 shift/reduce conflicts.  */
+%expect 34
 
 %union
 {
@@ -683,9 +683,9 @@ datetime:
 
 iso_8601_datetime:
     iso_8601_date 'T' iso_8601_time
-  | number 'T' iso_8601_timenumber
+  | number 'T' number
   | number 'T' iso_8601_time
-  | iso_8601_date 'T' iso_8601_timenumber
+  | iso_8601_date 'T' number
   ;
 
 time:
@@ -1005,23 +1005,19 @@ unsigned_seconds:
         $$.tv_sec = $1.value; $$.tv_nsec = 0; }
   ;
 
-iso_8601_timenumber:
-   number
- | tUDECIMAL_NUMBER
-     {
-       textint timenumber;
-       if ($1.tv_sec >= 240000) YYABORT;
-       timenumber.digits = 6;
-       timenumber.value = $1.tv_sec;
-       timenumber.negative = false;
-       if (! digits_to_time(pc, timenumber)) YYABORT;
-       pc->seconds.tv_nsec = $1.tv_nsec;
-      }
-   ;
-
 number:
     tUNUMBER
       { digits_to_date_time (pc, $1); }
+  | tUDECIMAL_NUMBER
+     {
+       textint intpart;
+       if ($1.tv_sec >= 240000) YYABORT;
+       intpart.digits = 6;
+       intpart.value = $1.tv_sec;
+       intpart.negative = false;
+       if (!digits_to_time(pc, intpart)) YYABORT;
+       pc->seconds.tv_nsec = $1.tv_nsec;
+      }
   ;
 
 hybrid:
