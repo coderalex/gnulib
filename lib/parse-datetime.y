@@ -710,7 +710,7 @@ time:
 iso_8601_time:
     tUNUMBER zone_offset
       {
-        digits_to_time (pc, $1);
+        digits_to_date_time (pc, $1);
       }
   | tUNUMBER ':' tUNUMBER o_zone_offset
       {
@@ -1021,15 +1021,7 @@ iso_8601_timenumber:
 
 number:
     tUNUMBER
-      {
-        if (pc->dates_seen)
-        {
-          if (! digits_to_time (pc, $1)) YYABORT;
-        }
-        else {
-          digits_to_date_time (pc, $1);
-        }
-      }
+      { digits_to_date_time (pc, $1); }
   ;
 
 hybrid:
