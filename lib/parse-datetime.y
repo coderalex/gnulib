@@ -261,23 +261,23 @@ digits_to_time (parser_control *pc, textint text_int)
 {
   if ( text_int.digits > 6 ) return false;
 
-  intmax_t remainder = text_int.value;
+  intmax_t balance = text_int.value;
 
   pc->hour = pc->minutes = pc->seconds.tv_sec =  pc->seconds.tv_nsec = 0;
 
   if ( text_int.digits == 6 )
     {
-      pc->seconds.tv_sec = remainder % 100;
+      pc->seconds.tv_sec = balance % 100;
       pc->seconds.tv_nsec = 0;
-      remainder = remainder / 100;
+      balance = balance / 100;
     }
   if ( text_int.digits >= 4 )
     {
-      pc->minutes = remainder % 100;
-      remainder = remainder / 100;
+      pc->minutes = balance % 100;
+      balance = balance / 100;
     }
 
-  pc->hour = remainder;
+  pc->hour = balance;
   pc->meridian = MER24;
 
   pc->times_seen++;
@@ -680,7 +680,6 @@ datetime:
     iso_8601_datetime
   ;
 
-
 iso_8601_datetime:
     iso_8601_date 'T' iso_8601_time
   | number 'T' number
@@ -1011,12 +1010,12 @@ number:
       { digits_to_date_time (pc, $1); }
   | tUDECIMAL_NUMBER
      {
-       textint intpart;
+       textint int_part;
        if ($1.tv_sec >= 240000) YYABORT;
-       intpart.digits = 6;
-       intpart.value = $1.tv_sec;
-       intpart.negative = false;
-       if (!digits_to_time(pc, intpart)) YYABORT;
+       int_part.digits = 6;
+       int_part.value = $1.tv_sec;
+       int_part.negative = false;
+       if (!digits_to_time(pc, int_part)) YYABORT;
        pc->seconds.tv_nsec = $1.tv_nsec;
       }
   ;
