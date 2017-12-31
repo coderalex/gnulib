@@ -907,6 +907,7 @@ iso_8601_date:
     tUNUMBER tSNUMBER tSNUMBER
       {
         /* ISO 8601 format.  YYYY-MM-DD.  */
+        pc->dates_seen++;
         pc->year = $1;
         if (INT_SUBTRACT_WRAPV (0, $2.value, &pc->month)) YYABORT;
         if (INT_SUBTRACT_WRAPV (0, $3.value, &pc->day)) YYABORT;
