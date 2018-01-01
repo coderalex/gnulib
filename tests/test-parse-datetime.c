@@ -216,6 +216,67 @@ main (int argc _GL_UNUSED, char **argv)
           && expected.tv_nsec == result.tv_nsec);
 
 
+  /* ISO 8601 basic date and time of day representation,
+     'T' separator, local time zone */
+  p = "20110501T115518";
+  expected.tv_sec = ref_time - gmtoff;
+  expected.tv_nsec = 0;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
+
+
+  /* ISO 8601 basic date and time of day representation,
+     'T' separator, UTC */
+  p = "20110501T115518Z";
+  expected.tv_sec = ref_time;
+  expected.tv_nsec = 0;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
+
+
+  /* ISO 8601 basic date and time of day representation,
+     'T' separator, w/UTC offset */
+  p = "20110501T115518-0700";
+  expected.tv_sec = 1304276118;
+  expected.tv_nsec = 0;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
+
+
+  /* ISO 8601 basic date and time of day representation,
+     'T' separator, w/hour only UTC offset */
+  p = "20110501T115518-07";
+  expected.tv_sec = 1304276118;
+  expected.tv_nsec = 0;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
+
+
+  /* ISO 8601 basic date and time of day representation,
+     'T' separator, w/hour only UTC offset, with ns */
+  p = "20110501T115518,123456789-07";
+  expected.tv_sec = 1304276118;
+  expected.tv_nsec = 123456789;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
+
+
+  /* Invalid ISO 8601 basic date and time of day representation,
+     too many digits for time */
+  p = "20110501T11551800";
+  ASSERT (!parse_datetime (&result, p, 0));
+
+
   now.tv_sec = 4711;
   now.tv_nsec = 1267;
   p = "now";
