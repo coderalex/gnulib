@@ -287,18 +287,21 @@ digits_to_time (parser_control *pc, textint text_int)
 static bool
 digits_to_date (parser_control *pc, textint text_int)
 {
+  pc->dates_seen++;
   if (text_int.digits > 4)
     {
       pc->day = text_int.value % 100;
       pc->month = (text_int.value / 100) % 100;
       pc->year.value = text_int.value / 10000;
       pc->year.digits = text_int.digits - 4;
-      pc->dates_seen++;
-      return true;
     }
-    else {
-      return false;
+    else if (text_int.digits == 4)
+    {
+      pc->year = text_int;
     }
+    else return false;
+
+  return true;
 }
 
 /* Extract into *PC any date and time info from a string of digits
@@ -317,7 +320,7 @@ digits_to_date_time (parser_control *pc, textint text_int)
     {
       if (!pc->dates_seen && (4 < text_int.digits))
         {
-          digits_to_date(pc, text_int);
+          digits_to_date (pc, text_int);
         }
       else
         {
@@ -598,8 +601,8 @@ debug_print_relative_time (char const *item, parser_control const *pc)
 %parse-param { parser_control *pc }
 %lex-param { parser_control *pc }
 
-/* This grammar has 34 shift/reduce conflicts.  */
-%expect 34
+/* This grammar has 33 shift/reduce conflicts.  */
+%expect 33
 
 %union
 {
@@ -695,9 +698,15 @@ datetime:
 
 iso_8601_datetime:
     iso_8601_date 'T' iso_8601_time
-  | number 'T' number
-  | number 'T' iso_8601_time
-  | iso_8601_date 'T' number
+  | tUNUMBER 'T' time_number
+      {
+        if (!digits_to_date (pc, $1)) YYABORT;
+      }
+  | tUNUMBER 'T' iso_8601_time
+      {
+        if (!digits_to_date (pc, $1)) YYABORT;
+      }
+  | iso_8601_date 'T' time_number
   ;
 
 time:
@@ -1018,19 +1027,24 @@ unsigned_seconds:
         $$.tv_sec = $1.value; $$.tv_nsec = 0; }
   ;
 
+time_number:
+    tUNUMBER
+      { digits_to_time (pc, $1); }
+  | tUDECIMAL_NUMBER
+      {
+        textint int_part;
+        if ($1.tv_sec >= 240000) YYABORT;
+        int_part.digits = 6;
+        int_part.value = $1.tv_sec;
+        int_part.negative = false;
+        if (!digits_to_time(pc, int_part)) YYABORT;
+        pc->seconds.tv_nsec = $1.tv_nsec;
+      }
+  ;
+
 number:
     tUNUMBER
       { digits_to_date_time (pc, $1); }
-  | tUDECIMAL_NUMBER
-     {
-       textint int_part;
-       if ($1.tv_sec >= 240000) YYABORT;
-       int_part.digits = 6;
-       int_part.value = $1.tv_sec;
-       int_part.negative = false;
-       if (!digits_to_time(pc, int_part)) YYABORT;
-       pc->seconds.tv_nsec = $1.tv_nsec;
-      }
   ;
 
 hybrid:
