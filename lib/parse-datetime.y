@@ -284,6 +284,20 @@ digits_to_time (parser_control *pc, textint text_int)
 }
 
 static bool
+decimal_to_time (parser_control *pc, struct timespec decimal)
+  {
+    textint int_part;
+    if (decimal.tv_sec >= 240000) return false;
+    int_part.digits = 6;
+    int_part.value = decimal.tv_sec;
+    int_part.negative = false;
+    if (!digits_to_time (pc, int_part)) return false;
+    pc->seconds.tv_nsec = decimal.tv_nsec;
+    return true;
+  }
+
+
+static bool
 digits_to_date (parser_control *pc, textint text_int)
 {
   if (text_int.digits > 4)
@@ -1024,15 +1038,7 @@ time_number:
     tUNUMBER
       { digits_to_time (pc, $1); }
   | tUDECIMAL_NUMBER
-      {
-        textint int_part;
-        if ($1.tv_sec >= 240000) YYABORT;
-        int_part.digits = 6;
-        int_part.value = $1.tv_sec;
-        int_part.negative = false;
-        if (!digits_to_time (pc, int_part)) YYABORT;
-        pc->seconds.tv_nsec = $1.tv_nsec;
-      }
+      { if (!decimal_to_time (pc, $1)) YYABORT; }
   ;
 
 number:
