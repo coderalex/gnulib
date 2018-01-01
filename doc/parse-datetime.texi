@@ -327,7 +327,12 @@ The ISO 8601 date and time of day extended format consists of an ISO
 day.  This format is also recognized if the @samp{T} is replaced by a
 space.
 
-In this format, the time of day should use 24-hour notation.
+The ISO 8601 basic format is also recognized. It is identical to the ISO 8601
+extended format, except for omitting the @samp{-} separator in the date and the
+address@hidden:} separator in the time. Only the HHMMSS format is supported for the
+time of day, the reduced accuracy HHMM and HH formats are not supported.
+
+In these formats, the time of day should use 24-hour notation.
 Fractional seconds are allowed, with either comma or period preceding
 the fraction.  ISO 8601 fractional minutes and hours are not
 supported.  Typically, hosts support nanosecond timestamp resolution;
@@ -339,6 +344,8 @@ Here are some examples:
 2012-09-24T20:02:00.052-05:00
 2012-12-31T23:59:59,999999999+11:00
 1970-01-01 00:00Z
+20120924T200200.052-0500
+20121231T235959,999999999+1100
 @end example
 
 @node Day of week items

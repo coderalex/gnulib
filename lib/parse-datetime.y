@@ -298,6 +298,38 @@ digits_to_date_time (parser_control *pc, textint text_int)
     }
 }
 
+/* Extract into *PC the date info from a string of digits in ISO 8601 basic
+   format, i.e., YYYYMMHH, YYYY, or YY meaning century. Note that YYYYMM is not
+   allowed to avoid confusion with YYMMHH  */
+static void
+digits_iso_8601_basic_to_date (parser_control *pc, textint text_int)
+{
+  switch (text_int.digits)
+    {
+    case 8:
+      pc->day = text_int.value % 100;
+      pc->month = (text_int.value / 100) % 100;
+      pc->year.value = text_int.value / 10000;
+      pc->year.digits = 4;
+      return;
+    case 4:
+      pc->day = 1;
+      pc->month = 1;
+      pc->year.value = text_int.value;
+      pc->year.digits = 4;
+      return;
+    case 2:
+      pc->day = 1;
+      pc->month = 1;
+      pc->year.value = text_int.value * 100;
+      pc->year.digits = 4;
+      return;
+    default:
+      pc->dates_seen++;
+      return;
+    }
+}
+
 /* Increment PC->rel by FACTOR * REL (FACTOR is 1 or -1).  Return true
    if successful, false if an overflow occurred.  */
 static bool
@@ -561,6 +593,28 @@ debug_print_relative_time (char const *item, parser_control const *pc)
 
 
 
+/* Set PC-> hour, minutes, seconds and nanoseconds members from ISO 8601 basic
+   time.  */
+static void
+set_hhmmss_iso_8601_basic_time (parser_control *pc, time_t integer_part,
+                                long int fractional_part)
+{
+  if (integer_part / 1000000 > 0)
+    {
+      /* Not ISO 8601 time, arrange to reject it by incrementing
+         pc->times_seen.*/
+      pc->times_seen++;
+    }
+  else
+    {
+      /* FIXME support reduced accuracy times, i.e. HHMM and HH */
+      pc->hour = integer_part / 10000;
+      pc->minutes = (integer_part % 10000) / 100;
+      pc->seconds.tv_sec = integer_part % 100;
+      pc->seconds.tv_nsec = fractional_part;
+    }
+}
+
 %}
 
 /* We want a reentrant parser, even if the TZ manipulation and the calls to
@@ -569,8 +623,8 @@ debug_print_relative_time (char const *item, parser_control const *pc)
 %parse-param { parser_control *pc }
 %lex-param { parser_control *pc }
 
-/* This grammar has 31 shift/reduce conflicts.  */
-%expect 31
+/* This grammar has 33 shift/reduce conflicts.  */
+%expect 33
 
 %union
 {
@@ -665,10 +719,20 @@ item:
 
 datetime:
     iso_8601_datetime
+  | iso_8601_basic_datetime
   ;
 
 iso_8601_datetime:
     iso_8601_date 'T' iso_8601_time
+  ;
+
+iso_8601_basic_datetime:
+    tUNUMBER 'T' unsigned_seconds o_zone_offset
+      {
+        digits_iso_8601_basic_to_date (pc, $1);
+        set_hhmmss_iso_8601_basic_time (pc, $3.tv_sec, $3.tv_nsec);
+        pc->meridian = MER24;
+      }
   ;
 
 time:
