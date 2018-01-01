@@ -280,14 +280,12 @@ digits_to_time (parser_control *pc, textint text_int)
   pc->hour = balance;
   pc->meridian = MER24;
 
-  pc->times_seen++;
   return true;
 }
 
 static bool
 digits_to_date (parser_control *pc, textint text_int)
 {
-  pc->dates_seen++;
   if (text_int.digits > 4)
     {
       pc->day = text_int.value % 100;
@@ -318,12 +316,14 @@ digits_to_date_time (parser_control *pc, textint text_int)
     }
   else
     {
-      if (!pc->dates_seen && (4 < text_int.digits))
+      if (!pc->dates_seen && 4 < text_int.digits)
         {
+          pc->dates_seen++;
           digits_to_date (pc, text_int);
         }
       else
         {
+          pc->times_seen++;
           digits_to_time (pc, text_int);
         }
     }
@@ -359,7 +359,6 @@ static void
 set_hhmmss (parser_control *pc, intmax_t hour, intmax_t minutes,
             time_t sec, int nsec)
 {
-  pc->times_seen++;
   pc->hour = hour;
   pc->minutes = minutes;
   pc->seconds.tv_sec = sec;
@@ -653,10 +652,12 @@ items:
 item:
     datetime
       {
+        pc->times_seen++; pc->dates_seen++;
         debug_print_current_time (_("datetime"), pc);
       }
   | time
       {
+        pc->times_seen++;
         debug_print_current_time (_("time"), pc);
       }
   | local_zone
@@ -671,6 +672,7 @@ item:
       }
   | date
       {
+        pc->dates_seen++;
         debug_print_current_time (_("date"), pc);
       }
   | day
@@ -731,7 +733,7 @@ time:
 iso_8601_time:
     tUNUMBER zone_offset
       {
-        digits_to_date_time (pc, $1);
+        if(!digits_to_time (pc, $1)) YYABORT;
       }
   | tUNUMBER ':' tUNUMBER o_zone_offset
       {
@@ -839,7 +841,6 @@ day:
 date:
     tUNUMBER '/' tUNUMBER
       {
-        pc->dates_seen++;
         pc->month = $1.value;
         pc->day = $3.value;
       }
@@ -850,7 +851,6 @@ date:
            The goal in recognizing YYYY/MM/DD is solely to support legacy
            machine-generated dates like those in an RCS log listing.  If
            you want portability, use the ISO 8601 format.  */
-        pc->dates_seen++;
         if (4 <= $1.digits)
           {
             if (pc->parse_datetime_debug)
@@ -879,7 +879,6 @@ date:
       }
   | tUNUMBER tMONTH tSNUMBER
       {
-        pc->dates_seen++;
         /* E.g., 17-JUN-1992.  */
         pc->day = $1.value;
         pc->month = $2;
@@ -888,7 +887,6 @@ date:
       }
   | tMONTH tSNUMBER tSNUMBER
       {
-        pc->dates_seen++;
         /* E.g., JUN-17-1992.  */
         pc->month = $1;
         if (INT_SUBTRACT_WRAPV (0, $2.value, &pc->day)) YYABORT;
@@ -897,26 +895,22 @@ date:
       }
   | tMONTH tUNUMBER
       {
-        pc->dates_seen++;
         pc->month = $1;
         pc->day = $2.value;
       }
   | tMONTH tUNUMBER ',' tUNUMBER
       {
-        pc->dates_seen++;
         pc->month = $1;
         pc->day = $2.value;
         pc->year = $4;
       }
   | tUNUMBER tMONTH
       {
-        pc->dates_seen++;
         pc->day = $1.value;
         pc->month = $2;
       }
   | tUNUMBER tMONTH tUNUMBER
       {
-        pc->dates_seen++;
         pc->day = $1.value;
         pc->month = $2;
         pc->year = $3;
@@ -928,7 +922,6 @@ iso_8601_date:
     tUNUMBER tSNUMBER tSNUMBER
       {
         /* ISO 8601 format.  YYYY-MM-DD.  */
-        pc->dates_seen++;
         pc->year = $1;
         if (INT_SUBTRACT_WRAPV (0, $2.value, &pc->month)) YYABORT;
         if (INT_SUBTRACT_WRAPV (0, $3.value, &pc->day)) YYABORT;
@@ -1037,7 +1030,7 @@ time_number:
         int_part.digits = 6;
         int_part.value = $1.tv_sec;
         int_part.negative = false;
-        if (!digits_to_time(pc, int_part)) YYABORT;
+        if (!digits_to_time (pc, int_part)) YYABORT;
         pc->seconds.tv_nsec = $1.tv_nsec;
       }
   ;
