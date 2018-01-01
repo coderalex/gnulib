@@ -1,5 +1,5 @@
 # GNU Makefile for gnulib central.
-# Copyright (C) 2006, 2009-2017 Free Software Foundation, Inc.
+# Copyright (C) 2006, 2009-2018 Free Software Foundation, Inc.
 #
 # Copying and distribution of this file, with or without modification,
 # in any medium, are permitted without royalty provided the copyright
@@ -160,7 +160,7 @@ MODULES.html: MODULES.html.sh
 update-copyright:
 	exempt=$$(mktemp);						\
 	grep -v '^#' config/srclist.txt|grep -v '^$$'			\
-	  | while read src dst; do					\
+	  | while read top src dst options; do				\
 	      test -f "$$dst" && { echo "$$dst"; continue; };		\
 	      test -d "$$dst" || continue;				\
 	      echo "$$dst"/$$(basename "$$src");			\
