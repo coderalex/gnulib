@@ -343,11 +343,11 @@ static void
 set_hhmmss (parser_control *pc, intmax_t hour, intmax_t minutes,
             time_t sec, int nsec)
 {
+  pc->times_seen++;
   pc->hour = hour;
   pc->minutes = minutes;
   pc->seconds.tv_sec = sec;
   pc->seconds.tv_nsec = nsec;
-  pc->times_seen++;
 }
 
 /* Return a textual representation of the day ordinal/number values
