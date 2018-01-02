@@ -1,0 +1,23 @@
+I present a patch to allow parse-datetime to -- finally -- accept
+dates in the ISO 8601 basic format.  that is, a time string consisting
+of only alphanumeric characters -- no spaces, no punctuation, suitable
+for use in fields that cannot contain spaces, hyphens, or colons.
+
+This will allow datetime strings of the following formats, all
+followed optionally by a zone offset:
+
+YYYYMMDDThhmm, e.g. 20180102T0304, 20180102T0304Z, 20180102T1104-0800
+YYYYMMDDThhmmss, e.g. 20180102T030405
+
+YYMMDDThhmm, e.g. 180102T0304 YYMMDDThhmmss, e.g. 180102T030405
+
+as well as:
+
+YYYYThh, e.g., 2018T03 = 3AM on first day of 2018
+
+CCThh, e.g. 20T000001 = second minute of 21st century
+
+In addition, decimal parts of seconds are accepted (dot or comma
+may be used):
+
+20180102T210729.068302473
