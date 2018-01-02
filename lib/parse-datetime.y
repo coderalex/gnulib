@@ -256,11 +256,9 @@ static int yylex (union YYSTYPE *, parser_control *);
 static int yyerror (parser_control const *, char const *);
 static bool time_zone_hhmm (parser_control *, textint, intmax_t);
 
-static bool
+static void
 digits_to_time (parser_control *pc, textint text_int)
 {
-  if ( text_int.digits > 6 ) return false;
-
   intmax_t balance = text_int.value;
 
   pc->hour = pc->minutes = pc->seconds.tv_sec =  pc->seconds.tv_nsec = 0;
@@ -279,8 +277,6 @@ digits_to_time (parser_control *pc, textint text_int)
 
   pc->hour = balance;
   pc->meridian = MER24;
-
-  return true;
 }
 
 static void
@@ -616,8 +612,8 @@ debug_print_relative_time (char const *item, parser_control const *pc)
 %parse-param { parser_control *pc }
 %lex-param { parser_control *pc }
 
-/* This grammar has 34 shift/reduce conflicts.  */
-%expect 34
+/* This grammar has 27 shift/reduce conflicts.  */
+%expect 27
 
 %union
 {
@@ -715,12 +711,8 @@ datetime:
   ;
 
 iso_8601_datetime:
-    iso_8601_date 'T' iso_8601_time
-  | tUNUMBER 'T' time_number
-      { digits_to_date (pc, $1); }
-  | tUNUMBER 'T' iso_8601_time
-      { digits_to_date (pc, $1); }
-  | iso_8601_date 'T' time_number
+    iso_8601_date_T iso_8601_time
+  | iso_8601_date_T time_number o_zone_offset
   ;
 
 time:
@@ -743,11 +735,7 @@ time:
   ;
 
 iso_8601_time:
-    tUNUMBER zone_offset
-      {
-        if(!digits_to_time (pc, $1)) YYABORT;
-      }
-  | tUNUMBER ':' tUNUMBER o_zone_offset
+    tUNUMBER ':' tUNUMBER o_zone_offset
       {
         set_hhmmss (pc, $1.value, $3.value, 0, 0);
         pc->meridian = MER24;
@@ -939,6 +927,13 @@ iso_8601_date:
         if (INT_SUBTRACT_WRAPV (0, $3.value, &pc->day)) YYABORT;
       }
   ;
+
+iso_8601_date_T:
+      iso_8601_date 'T'
+    | tUNUMBER 'T'
+      { digits_to_date (pc, $1); }
+  ;
+
 
 rel:
     relunit tAGO
