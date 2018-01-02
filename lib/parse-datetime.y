@@ -283,17 +283,15 @@ digits_to_time (parser_control *pc, textint text_int)
   return true;
 }
 
-static bool
+static void
 decimal_to_time (parser_control *pc, struct timespec decimal)
   {
     textint int_part;
-    if (decimal.tv_sec >= 240000) return false;
     int_part.digits = 6;
     int_part.value = decimal.tv_sec;
     int_part.negative = false;
-    if (!digits_to_time (pc, int_part)) return false;
+    digits_to_time (pc, int_part);
     pc->seconds.tv_nsec = decimal.tv_nsec;
-    return true;
   }
 
 
@@ -614,8 +612,8 @@ debug_print_relative_time (char const *item, parser_control const *pc)
 %parse-param { parser_control *pc }
 %lex-param { parser_control *pc }
 
-/* This grammar has 33 shift/reduce conflicts.  */
-%expect 33
+/* This grammar has 34 shift/reduce conflicts.  */
+%expect 34
 
 %union
 {
@@ -1038,12 +1036,18 @@ time_number:
     tUNUMBER
       { digits_to_time (pc, $1); }
   | tUDECIMAL_NUMBER
-      { if (!decimal_to_time (pc, $1)) YYABORT; }
+      { decimal_to_time (pc, $1); }
   ;
 
 number:
     tUNUMBER
       { digits_to_date_time (pc, $1); }
+  | tUDECIMAL_NUMBER
+      {
+        if (!pc->dates_seen) YYABORT;
+        pc->times_seen++;
+        decimal_to_time (pc, $1);
+      }
   ;
 
 hybrid:
