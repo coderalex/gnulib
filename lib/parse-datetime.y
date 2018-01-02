@@ -308,6 +308,8 @@ digits_to_date (parser_control *pc, textint text_int)
   else if (text_int.digits > 2)
     {
       pc->year = text_int;
+      pc->month = 1;
+      pc->day = 1;
     }
   else
     {
