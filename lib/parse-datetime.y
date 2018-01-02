@@ -295,7 +295,7 @@ decimal_to_time (parser_control *pc, struct timespec decimal)
   }
 
 
-static bool
+static void
 digits_to_date (parser_control *pc, textint text_int)
 {
   if (text_int.digits > 4)
@@ -305,14 +305,16 @@ digits_to_date (parser_control *pc, textint text_int)
       pc->year.value = text_int.value / 10000;
       pc->year.digits = text_int.digits - 4;
     }
-    else if (text_int.digits == 4)
+  else if (text_int.digits > 2)
     {
       pc->year = text_int;
     }
-    else return false;
-
-  return true;
+  else
+    {
+      pc->year.value = text_int.value * 100;
+    }
 }
+
 
 /* Extract into *PC any date and time info from a string of digits
    of the form e.g., YYYYMMDD, YYMMDD, HHMM, HH (and sometimes YYY,
@@ -713,13 +715,9 @@ datetime:
 iso_8601_datetime:
     iso_8601_date 'T' iso_8601_time
   | tUNUMBER 'T' time_number
-      {
-        if (!digits_to_date (pc, $1)) YYABORT;
-      }
+      { digits_to_date (pc, $1); }
   | tUNUMBER 'T' iso_8601_time
-      {
-        if (!digits_to_date (pc, $1)) YYABORT;
-      }
+      { digits_to_date (pc, $1); }
   | iso_8601_date 'T' time_number
   ;
 
