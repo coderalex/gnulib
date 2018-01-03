@@ -1,7 +1,7 @@
 %{
 /* Parse a string into an internal timestamp.
 
-   Copyright (C) 1999-2000, 2002-2017 Free Software Foundation, Inc.
+   Copyright (C) 1999-2000, 2002-2018 Free Software Foundation, Inc.
 
    This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -261,44 +261,27 @@ digits_to_time (parser_control *pc, textint text_int)
 {
   if ( text_int.digits > 6 ) return false;
 
-  intmax_t remainder = text_int.value;
+  intmax_t balance = text_int.value;
 
   pc->hour = pc->minutes = pc->seconds.tv_sec =  pc->seconds.tv_nsec = 0;
 
   if ( text_int.digits == 6 )
     {
-      pc->seconds.tv_sec = remainder % 100;
+      pc->seconds.tv_sec = balance % 100;
       pc->seconds.tv_nsec = 0;
-      remainder = remainder / 100;
+      balance = balance / 100;
     }
   if ( text_int.digits >= 4 )
     {
-      pc->minutes = remainder % 100;
-      remainder = remainder / 100;
+      pc->minutes = balance % 100;
+      balance = balance / 100;
     }
 
-  pc->hour = remainder;
+  pc->hour = balance;
   pc->meridian = MER24;
 
   pc->times_seen++;
   return true;
-}
-
-static bool
-digits_to_date (parser_control *pc, textint text_int)
-{
-  if (text_int.digits > 4)
-    {
-      pc->day = text_int.value % 100;
-      pc->month = (text_int.value / 100) % 100;
-      pc->year.value = text_int.value / 10000;
-      pc->year.digits = text_int.digits - 4;
-      pc->dates_seen++;
-      return true;
-    }
-    else {
-      return false;
-    }
 }
 
 /* Extract into *PC any date and time info from a string of digits
@@ -317,7 +300,11 @@ digits_to_date_time (parser_control *pc, textint text_int)
     {
       if (!pc->dates_seen && (4 < text_int.digits))
         {
-          digits_to_date(pc, text_int);
+          pc->dates_seen++;
+          pc->day = text_int.value % 100;
+          pc->month = (text_int.value / 100) % 100;
+          pc->year.value = text_int.value / 10000;
+          pc->year.digits = text_int.digits - 4;
         }
       else
         {
@@ -356,11 +343,11 @@ static void
 set_hhmmss (parser_control *pc, intmax_t hour, intmax_t minutes,
             time_t sec, int nsec)
 {
+  pc->times_seen++;
   pc->hour = hour;
   pc->minutes = minutes;
   pc->seconds.tv_sec = sec;
   pc->seconds.tv_nsec = nsec;
-  pc->times_seen++;
 }
 
 /* Return a textual representation of the day ordinal/number values
@@ -598,8 +585,8 @@ debug_print_relative_time (char const *item, parser_control const *pc)
 %parse-param { parser_control *pc }
 %lex-param { parser_control *pc }
 
-/* This grammar has 33 shift/reduce conflicts.  */
-%expect 33
+/* This grammar has 34 shift/reduce conflicts.  */
+%expect 34
 
 %union
 {
@@ -693,12 +680,11 @@ datetime:
     iso_8601_datetime
   ;
 
-
 iso_8601_datetime:
     iso_8601_date 'T' iso_8601_time
-  | number 'T' iso_8601_timenumber
+  | number 'T' number
   | number 'T' iso_8601_time
-  | iso_8601_date 'T' iso_8601_timenumber
+  | iso_8601_date 'T' number
   ;
 
 time:
@@ -723,7 +709,7 @@ time:
 iso_8601_time:
     tUNUMBER zone_offset
       {
-        digits_to_time (pc, $1);
+        digits_to_date_time (pc, $1);
       }
   | tUNUMBER ':' tUNUMBER o_zone_offset
       {
@@ -920,6 +906,7 @@ iso_8601_date:
     tUNUMBER tSNUMBER tSNUMBER
       {
         /* ISO 8601 format.  YYYY-MM-DD.  */
+        pc->dates_seen++;
         pc->year = $1;
         if (INT_SUBTRACT_WRAPV (0, $2.value, &pc->month)) YYABORT;
         if (INT_SUBTRACT_WRAPV (0, $3.value, &pc->day)) YYABORT;
@@ -1018,30 +1005,18 @@ unsigned_seconds:
         $$.tv_sec = $1.value; $$.tv_nsec = 0; }
   ;
 
-iso_8601_timenumber:
-   number
- | tUDECIMAL_NUMBER
-     {
-       textint timenumber;
-       if ($1.tv_sec >= 240000) YYABORT;
-       timenumber.digits = 6;
-       timenumber.value = $1.tv_sec;
-       timenumber.negative = false;
-       if (! digits_to_time(pc, timenumber)) YYABORT;
-       pc->seconds.tv_nsec = $1.tv_nsec;
-      }
-   ;
-
 number:
     tUNUMBER
-      {
-        if (pc->dates_seen)
-        {
-          if (! digits_to_time (pc, $1)) YYABORT;
-        }
-        else {
-          digits_to_date_time (pc, $1);
-        }
+      { digits_to_date_time (pc, $1); }
+  | tUDECIMAL_NUMBER
+     {
+       textint int_part;
+       if ($1.tv_sec >= 240000) YYABORT;
+       int_part.digits = 6;
+       int_part.value = $1.tv_sec;
+       int_part.negative = false;
+       if (!digits_to_time(pc, int_part)) YYABORT;
+       pc->seconds.tv_nsec = $1.tv_nsec;
       }
   ;
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (C) 2002-2017 Free Software Foundation, Inc.
+# Copyright (C) 2002-2018 Free Software Foundation, Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -2652,7 +2652,6 @@ func_all_modules ()
   func_module backup-rename
   func_module canonicalize
   func_module canonicalize-lgpl
-  func_module chdir-safer
   func_module clean-temp
   func_module concat-filename
   func_module copy-file
