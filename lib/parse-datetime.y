@@ -249,6 +249,9 @@ typedef struct
 
   /* Table of local time zone abbreviations, terminated by a null entry.  */
   table local_time_zone_table[3];
+
+  /* digits in the current word */
+  int current_digits;
 } parser_control;
 
 union YYSTYPE;
@@ -283,11 +286,24 @@ static void
 decimal_to_time (parser_control *pc, struct timespec decimal)
   {
     textint int_part;
-    int_part.digits = 6;
+    fprintf (stderr, "Current digits: %d\n", pc->current_digits);
+    fprintf (stderr, "nanoseconds: %ld\n", decimal.tv_nsec);
+    int_part.digits = pc->current_digits;
     int_part.value = decimal.tv_sec;
     int_part.negative = false;
     digits_to_time (pc, int_part);
-    pc->seconds.tv_nsec = decimal.tv_nsec;
+    if (int_part.digits == 6)
+      {
+        pc->seconds.tv_nsec = decimal.tv_nsec;
+      }
+    else if (int_part.digits > 3)
+      {
+        pc->seconds.tv_sec = (int)((60 * decimal.tv_nsec) / 1000000000 );
+      }
+    else
+      {
+        pc->minutes = (int)((60 * decimal.tv_nsec) / 1000000000);
+      }
   }
 
 
@@ -1494,8 +1510,10 @@ yylex (union YYSTYPE *lvalp, parser_control *pc)
             sign = 0;
           p = pc->input;
 
+          pc->current_digits = 0;
           do
             {
+              pc->current_digits++; 
               if (INT_MULTIPLY_WRAPV (value, 10, &value))
                 return '?';
               if (INT_ADD_WRAPV (value, sign < 0 ? '0' - c : c - '0', &value))
