@@ -155,6 +155,14 @@ typedef struct
   ptrdiff_t digits;
 } textint;
 
+/* A decimal value, and the number of digits in the decimal part of
+   its textual representation.  */
+typedef struct
+{
+  struct timespec timespec;
+  ptrdiff_t digits;
+} hhmmss_decimal;
+
 /* An entry in the lexical lookup table.  */
 typedef struct
 {
@@ -249,9 +257,6 @@ typedef struct
 
   /* Table of local time zone abbreviations, terminated by a null entry.  */
   table local_time_zone_table[3];
-
-  /* digits in the current word */
-  int current_digits;
 } parser_control;
 
 union YYSTYPE;
@@ -283,26 +288,26 @@ digits_to_time (parser_control *pc, textint text_int)
 }
 
 static void
-decimal_to_time (parser_control *pc, struct timespec decimal)
+decimal_to_time (parser_control *pc, hhmmss_decimal ts)
   {
     textint int_part;
-    fprintf (stderr, "Current digits: %d\n", pc->current_digits);
-    fprintf (stderr, "nanoseconds: %ld\n", decimal.tv_nsec);
-    int_part.digits = pc->current_digits;
-    int_part.value = decimal.tv_sec;
+    fprintf (stderr, "Digits: %ld\n", ts.digits);
+    fprintf (stderr, "nanoseconds: %ld\n", ts.timespec.tv_nsec);
+    int_part.digits = ts.digits;
+    int_part.value = ts.timespec.tv_sec;
     int_part.negative = false;
     digits_to_time (pc, int_part);
     if (int_part.digits == 6)
       {
-        pc->seconds.tv_nsec = decimal.tv_nsec;
+        pc->seconds.tv_nsec = ts.timespec.tv_nsec;
       }
     else if (int_part.digits > 3)
       {
-        pc->seconds.tv_sec = (int)((60 * decimal.tv_nsec) / 1000000000 );
+        pc->seconds.tv_sec = (int)((60 * ts.timespec.tv_nsec) / 1000000000 );
       }
     else
       {
-        pc->minutes = (int)((60 * decimal.tv_nsec) / 1000000000);
+        pc->minutes = (int)((60 * ts.timespec.tv_nsec) / 1000000000);
       }
   }
 
@@ -636,6 +641,7 @@ debug_print_relative_time (char const *item, parser_control const *pc)
   intmax_t intval;
   textint textintval;
   struct timespec timespec;
+  hhmmss_decimal hhmmss_decimal;
   relative_time rel;
 }
 
@@ -649,7 +655,7 @@ debug_print_relative_time (char const *item, parser_control const *pc)
 %token <intval> tMONTH tORDINAL tZONE
 
 %token <textintval> tSNUMBER tUNUMBER
-%token <timespec> tSDECIMAL_NUMBER tUDECIMAL_NUMBER
+%token <hhmmss_decimal> tSDECIMAL_NUMBER tUDECIMAL_NUMBER
 
 %type <intval> o_colon_minutes
 %type <timespec> seconds signed_seconds unsigned_seconds
@@ -998,9 +1004,9 @@ relunit:
   | tUNUMBER tSEC_UNIT
       { $$ = RELATIVE_TIME_0; $$.seconds = $1.value; }
   | tSDECIMAL_NUMBER tSEC_UNIT
-      { $$ = RELATIVE_TIME_0; $$.seconds = $1.tv_sec; $$.ns = $1.tv_nsec; }
+      { $$ = RELATIVE_TIME_0; $$.seconds = $1.timespec.tv_sec; $$.ns = $1.timespec.tv_nsec; }
   | tUDECIMAL_NUMBER tSEC_UNIT
-      { $$ = RELATIVE_TIME_0; $$.seconds = $1.tv_sec; $$.ns = $1.tv_nsec; }
+      { $$ = RELATIVE_TIME_0; $$.seconds = $1.timespec.tv_sec; $$.ns = $1.timespec.tv_nsec; }
   | tSEC_UNIT
       { $$ = RELATIVE_TIME_0; $$.seconds = 1; }
   | relunit_snumber
@@ -1031,6 +1037,7 @@ seconds: signed_seconds | unsigned_seconds;
 
 signed_seconds:
     tSDECIMAL_NUMBER
+      { $$ = $1.timespec; }
   | tSNUMBER
       { if (time_overflow ($1.value)) YYABORT;
         $$.tv_sec = $1.value; $$.tv_nsec = 0; }
@@ -1038,6 +1045,7 @@ signed_seconds:
 
 unsigned_seconds:
     tUDECIMAL_NUMBER
+      { $$ = $1.timespec; }
   | tUNUMBER
       { if (time_overflow ($1.value)) YYABORT;
         $$.tv_sec = $1.value; $$.tv_nsec = 0; }
@@ -1510,10 +1518,8 @@ yylex (union YYSTYPE *lvalp, parser_control *pc)
             sign = 0;
           p = pc->input;
 
-          pc->current_digits = 0;
           do
             {
-              pc->current_digits++; 
               if (INT_MULTIPLY_WRAPV (value, 10, &value))
                 return '?';
               if (INT_ADD_WRAPV (value, sign < 0 ? '0' - c : c - '0', &value))
@@ -1524,6 +1530,7 @@ yylex (union YYSTYPE *lvalp, parser_control *pc)
 
           if ((c == '.' || c == ',') && c_isdigit (p[1]))
             {
+              lvalp->hhmmss_decimal.digits = p - pc->input;
               time_t s;
               int ns;
               int digits;
@@ -1564,8 +1571,8 @@ yylex (union YYSTYPE *lvalp, parser_control *pc)
                   ns = BILLION - ns;
                 }
 
-              lvalp->timespec.tv_sec = s;
-              lvalp->timespec.tv_nsec = ns;
+              lvalp->hhmmss_decimal.timespec.tv_sec = s;
+              lvalp->hhmmss_decimal.timespec.tv_nsec = ns;
               pc->input = p;
               return sign ? tSDECIMAL_NUMBER : tUDECIMAL_NUMBER;
             }
