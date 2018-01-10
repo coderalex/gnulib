@@ -271,7 +271,7 @@ digits_to_time (parser_control *pc, textint text_int)
 
   pc->hour = pc->minutes = pc->seconds.tv_sec =  pc->seconds.tv_nsec = 0;
 
-  if ( text_int.digits == 6 )
+  if ( text_int.digits >= 6 )
     {
       pc->seconds.tv_sec = balance % 100;
       pc->seconds.tv_nsec = 0;
@@ -297,17 +297,23 @@ decimal_to_time (parser_control *pc, hhmmss_decimal ts)
     int_part.value = ts.timespec.tv_sec;
     int_part.negative = false;
     digits_to_time (pc, int_part);
-    if (int_part.digits == 6)
+    if (int_part.digits > 5)
       {
         pc->seconds.tv_nsec = ts.timespec.tv_nsec;
       }
     else if (int_part.digits > 3)
       {
-        pc->seconds.tv_sec = (int)((60 * ts.timespec.tv_nsec) / 1000000000 );
+        double quotient = (60 * ts.timespec.tv_nsec) / 1E9;
+        pc->seconds.tv_sec = (int) quotient;
+        pc->seconds.tv_nsec = 1E9 * (quotient - pc->seconds.tv_sec);
       }
     else
       {
-        pc->minutes = (int)((60 * ts.timespec.tv_nsec) / 1000000000);
+        long double quotient = (60 * ts.timespec.tv_nsec) / 1E9;
+        pc->minutes = (int) quotient;
+        long double remainder = 60 * (quotient - pc->minutes);
+        pc->seconds.tv_sec = (int) remainder;
+        pc->seconds.tv_nsec = 1E9 * remainder - pc->seconds.tv_sec;
       }
   }
 
