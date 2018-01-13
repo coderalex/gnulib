@@ -291,8 +291,6 @@ static void
 decimal_to_time (parser_control *pc, hhmmss_decimal ts)
   {
     textint int_part;
-    fprintf (stderr, "Digits: %ld\n", ts.digits);
-    fprintf (stderr, "nanoseconds: %ld\n", ts.timespec.tv_nsec);
     int_part.digits = ts.digits;
     int_part.value = ts.timespec.tv_sec;
     int_part.negative = false;
