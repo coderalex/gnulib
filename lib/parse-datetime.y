@@ -155,6 +155,14 @@ typedef struct
   ptrdiff_t digits;
 } textint;
 
+/* A decimal value, and the number of digits in the decimal part of
+   its textual representation.  */
+typedef struct
+{
+  struct timespec timespec;
+  ptrdiff_t digits;
+} hhmmss_decimal;
+
 /* An entry in the lexical lookup table.  */
 typedef struct
 {
@@ -256,16 +264,14 @@ static int yylex (union YYSTYPE *, parser_control *);
 static int yyerror (parser_control const *, char const *);
 static bool time_zone_hhmm (parser_control *, textint, intmax_t);
 
-static bool
+static void
 digits_to_time (parser_control *pc, textint text_int)
 {
-  if ( text_int.digits > 6 ) return false;
-
   intmax_t balance = text_int.value;
 
   pc->hour = pc->minutes = pc->seconds.tv_sec =  pc->seconds.tv_nsec = 0;
 
-  if ( text_int.digits == 6 )
+  if ( text_int.digits >= 6 )
     {
       pc->seconds.tv_sec = balance % 100;
       pc->seconds.tv_nsec = 0;
@@ -279,10 +285,59 @@ digits_to_time (parser_control *pc, textint text_int)
 
   pc->hour = balance;
   pc->meridian = MER24;
-
-  pc->times_seen++;
-  return true;
 }
+
+static void
+decimal_to_time (parser_control *pc, hhmmss_decimal ts)
+  {
+    textint int_part;
+    int_part.digits = ts.digits;
+    int_part.value = ts.timespec.tv_sec;
+    int_part.negative = false;
+    digits_to_time (pc, int_part);
+    if (int_part.digits > 5)
+      {
+        pc->seconds.tv_nsec = ts.timespec.tv_nsec;
+      }
+    else if (int_part.digits > 3)
+      {
+        double quotient = (60 * ts.timespec.tv_nsec) / 1E9;
+        pc->seconds.tv_sec = (int) quotient;
+        pc->seconds.tv_nsec = 1E9 * (quotient - pc->seconds.tv_sec);
+      }
+    else
+      {
+        long double quotient = (60 * ts.timespec.tv_nsec) / 1E9;
+        pc->minutes = (int) quotient;
+        long double remainder = 60 * (quotient - pc->minutes);
+        pc->seconds.tv_sec = (int) remainder;
+        pc->seconds.tv_nsec = 1E9 * (remainder - pc->seconds.tv_sec);
+      }
+  }
+
+
+static void
+digits_to_date (parser_control *pc, textint text_int)
+{
+  if (text_int.digits > 4)
+    {
+      pc->day = text_int.value % 100;
+      pc->month = (text_int.value / 100) % 100;
+      pc->year.value = text_int.value / 10000;
+      pc->year.digits = text_int.digits - 4;
+    }
+  else if (text_int.digits > 2)
+    {
+      pc->year = text_int;
+      pc->month = 1;
+      pc->day = 1;
+    }
+  else
+    {
+      pc->year.value = text_int.value * 100;
+    }
+}
+
 
 /* Extract into *PC any date and time info from a string of digits
    of the form e.g., YYYYMMDD, YYMMDD, HHMM, HH (and sometimes YYY,
@@ -298,16 +353,14 @@ digits_to_date_time (parser_control *pc, textint text_int)
     }
   else
     {
-      if (!pc->dates_seen && (4 < text_int.digits))
+      if (!pc->dates_seen && 4 < text_int.digits)
         {
           pc->dates_seen++;
-          pc->day = text_int.value % 100;
-          pc->month = (text_int.value / 100) % 100;
-          pc->year.value = text_int.value / 10000;
-          pc->year.digits = text_int.digits - 4;
+          digits_to_date (pc, text_int);
         }
       else
         {
+          pc->times_seen++;
           digits_to_time (pc, text_int);
         }
     }
@@ -343,7 +396,6 @@ static void
 set_hhmmss (parser_control *pc, intmax_t hour, intmax_t minutes,
             time_t sec, int nsec)
 {
-  pc->times_seen++;
   pc->hour = hour;
   pc->minutes = minutes;
   pc->seconds.tv_sec = sec;
@@ -585,14 +637,15 @@ debug_print_relative_time (char const *item, parser_control const *pc)
 %parse-param { parser_control *pc }
 %lex-param { parser_control *pc }
 
-/* This grammar has 34 shift/reduce conflicts.  */
-%expect 34
+/* This grammar has 27 shift/reduce conflicts.  */
+%expect 27
 
 %union
 {
   intmax_t intval;
   textint textintval;
   struct timespec timespec;
+  hhmmss_decimal hhmmss_decimal;
   relative_time rel;
 }
 
@@ -606,7 +659,7 @@ debug_print_relative_time (char const *item, parser_control const *pc)
 %token <intval> tMONTH tORDINAL tZONE
 
 %token <textintval> tSNUMBER tUNUMBER
-%token <timespec> tSDECIMAL_NUMBER tUDECIMAL_NUMBER
+%token <hhmmss_decimal> tSDECIMAL_NUMBER tUDECIMAL_NUMBER
 
 %type <intval> o_colon_minutes
 %type <timespec> seconds signed_seconds unsigned_seconds
@@ -637,10 +690,12 @@ items:
 item:
     datetime
       {
+        pc->times_seen++; pc->dates_seen++;
         debug_print_current_time (_("datetime"), pc);
       }
   | time
       {
+        pc->times_seen++;
         debug_print_current_time (_("time"), pc);
       }
   | local_zone
@@ -655,6 +710,7 @@ item:
       }
   | date
       {
+        pc->dates_seen++;
         debug_print_current_time (_("date"), pc);
       }
   | day
@@ -681,10 +737,8 @@ datetime:
   ;
 
 iso_8601_datetime:
-    iso_8601_date 'T' iso_8601_time
-  | number 'T' number
-  | number 'T' iso_8601_time
-  | iso_8601_date 'T' number
+    iso_8601_date_T iso_8601_time
+  | iso_8601_date_T time_number o_zone_offset
   ;
 
 time:
@@ -707,11 +761,7 @@ time:
   ;
 
 iso_8601_time:
-    tUNUMBER zone_offset
-      {
-        digits_to_date_time (pc, $1);
-      }
-  | tUNUMBER ':' tUNUMBER o_zone_offset
+    tUNUMBER ':' tUNUMBER o_zone_offset
       {
         set_hhmmss (pc, $1.value, $3.value, 0, 0);
         pc->meridian = MER24;
@@ -817,7 +867,6 @@ day:
 date:
     tUNUMBER '/' tUNUMBER
       {
-        pc->dates_seen++;
         pc->month = $1.value;
         pc->day = $3.value;
       }
@@ -828,7 +877,6 @@ date:
            The goal in recognizing YYYY/MM/DD is solely to support legacy
            machine-generated dates like those in an RCS log listing.  If
            you want portability, use the ISO 8601 format.  */
-        pc->dates_seen++;
         if (4 <= $1.digits)
           {
             if (pc->parse_datetime_debug)
@@ -857,7 +905,6 @@ date:
       }
   | tUNUMBER tMONTH tSNUMBER
       {
-        pc->dates_seen++;
         /* E.g., 17-JUN-1992.  */
         pc->day = $1.value;
         pc->month = $2;
@@ -866,7 +913,6 @@ date:
       }
   | tMONTH tSNUMBER tSNUMBER
       {
-        pc->dates_seen++;
         /* E.g., JUN-17-1992.  */
         pc->month = $1;
         if (INT_SUBTRACT_WRAPV (0, $2.value, &pc->day)) YYABORT;
@@ -875,26 +921,22 @@ date:
       }
   | tMONTH tUNUMBER
       {
-        pc->dates_seen++;
         pc->month = $1;
         pc->day = $2.value;
       }
   | tMONTH tUNUMBER ',' tUNUMBER
       {
-        pc->dates_seen++;
         pc->month = $1;
         pc->day = $2.value;
         pc->year = $4;
       }
   | tUNUMBER tMONTH
       {
-        pc->dates_seen++;
         pc->day = $1.value;
         pc->month = $2;
       }
   | tUNUMBER tMONTH tUNUMBER
       {
-        pc->dates_seen++;
         pc->day = $1.value;
         pc->month = $2;
         pc->year = $3;
@@ -906,12 +948,18 @@ iso_8601_date:
     tUNUMBER tSNUMBER tSNUMBER
       {
         /* ISO 8601 format.  YYYY-MM-DD.  */
-        pc->dates_seen++;
         pc->year = $1;
         if (INT_SUBTRACT_WRAPV (0, $2.value, &pc->month)) YYABORT;
         if (INT_SUBTRACT_WRAPV (0, $3.value, &pc->day)) YYABORT;
       }
   ;
+
+iso_8601_date_T:
+      iso_8601_date 'T'
+    | tUNUMBER 'T'
+      { digits_to_date (pc, $1); }
+  ;
+
 
 rel:
     relunit tAGO
@@ -960,9 +1008,9 @@ relunit:
   | tUNUMBER tSEC_UNIT
       { $$ = RELATIVE_TIME_0; $$.seconds = $1.value; }
   | tSDECIMAL_NUMBER tSEC_UNIT
-      { $$ = RELATIVE_TIME_0; $$.seconds = $1.tv_sec; $$.ns = $1.tv_nsec; }
+      { $$ = RELATIVE_TIME_0; $$.seconds = $1.timespec.tv_sec; $$.ns = $1.timespec.tv_nsec; }
   | tUDECIMAL_NUMBER tSEC_UNIT
-      { $$ = RELATIVE_TIME_0; $$.seconds = $1.tv_sec; $$.ns = $1.tv_nsec; }
+      { $$ = RELATIVE_TIME_0; $$.seconds = $1.timespec.tv_sec; $$.ns = $1.timespec.tv_nsec; }
   | tSEC_UNIT
       { $$ = RELATIVE_TIME_0; $$.seconds = 1; }
   | relunit_snumber
@@ -993,6 +1041,7 @@ seconds: signed_seconds | unsigned_seconds;
 
 signed_seconds:
     tSDECIMAL_NUMBER
+      { $$ = $1.timespec; }
   | tSNUMBER
       { if (time_overflow ($1.value)) YYABORT;
         $$.tv_sec = $1.value; $$.tv_nsec = 0; }
@@ -1000,23 +1049,27 @@ signed_seconds:
 
 unsigned_seconds:
     tUDECIMAL_NUMBER
+      { $$ = $1.timespec; }
   | tUNUMBER
       { if (time_overflow ($1.value)) YYABORT;
         $$.tv_sec = $1.value; $$.tv_nsec = 0; }
+  ;
+
+time_number:
+    tUNUMBER
+      { digits_to_time (pc, $1); }
+  | tUDECIMAL_NUMBER
+      { decimal_to_time (pc, $1); }
   ;
 
 number:
     tUNUMBER
       { digits_to_date_time (pc, $1); }
   | tUDECIMAL_NUMBER
-     {
-       textint int_part;
-       if ($1.tv_sec >= 240000) YYABORT;
-       int_part.digits = 6;
-       int_part.value = $1.tv_sec;
-       int_part.negative = false;
-       if (!digits_to_time(pc, int_part)) YYABORT;
-       pc->seconds.tv_nsec = $1.tv_nsec;
+      {
+        if (!pc->dates_seen) YYABORT;
+        pc->times_seen++;
+        decimal_to_time (pc, $1);
       }
   ;
 
@@ -1481,6 +1534,7 @@ yylex (union YYSTYPE *lvalp, parser_control *pc)
 
           if ((c == '.' || c == ',') && c_isdigit (p[1]))
             {
+              lvalp->hhmmss_decimal.digits = p - pc->input;
               time_t s;
               int ns;
               int digits;
@@ -1521,8 +1575,8 @@ yylex (union YYSTYPE *lvalp, parser_control *pc)
                   ns = BILLION - ns;
                 }
 
-              lvalp->timespec.tv_sec = s;
-              lvalp->timespec.tv_nsec = ns;
+              lvalp->hhmmss_decimal.timespec.tv_sec = s;
+              lvalp->hhmmss_decimal.timespec.tv_nsec = ns;
               pc->input = p;
               return sign ? tSDECIMAL_NUMBER : tUDECIMAL_NUMBER;
             }
