@@ -313,7 +313,7 @@ decimal_to_time (parser_control *pc, hhmmss_decimal ts)
         pc->minutes = (int) quotient;
         long double remainder = 60 * (quotient - pc->minutes);
         pc->seconds.tv_sec = (int) remainder;
-        pc->seconds.tv_nsec = 1E9 * remainder - pc->seconds.tv_sec;
+        pc->seconds.tv_nsec = 1E9 * (remainder - pc->seconds.tv_sec);
       }
   }
 
