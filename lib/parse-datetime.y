@@ -287,34 +287,6 @@ digits_to_time (parser_control *pc, textint text_int)
   pc->meridian = MER24;
 }
 
-static void
-decimal_to_time (parser_control *pc, hhmmss_decimal ts)
-  {
-    textint int_part;
-    int_part.digits = ts.digits;
-    int_part.value = ts.timespec.tv_sec;
-    int_part.negative = false;
-    digits_to_time (pc, int_part);
-    if (int_part.digits > 5)
-      {
-        pc->seconds.tv_nsec = ts.timespec.tv_nsec;
-      }
-    else if (int_part.digits > 3)
-      {
-        double quotient = (60 * ts.timespec.tv_nsec) / 1E9;
-        pc->seconds.tv_sec = (int) quotient;
-        pc->seconds.tv_nsec = 1E9 * (quotient - pc->seconds.tv_sec);
-      }
-    else
-      {
-        long double quotient = (60 * ts.timespec.tv_nsec) / 1E9;
-        pc->minutes = (int) quotient;
-        long double remainder = 60 * (quotient - pc->minutes);
-        pc->seconds.tv_sec = (int) remainder;
-        pc->seconds.tv_nsec = 1E9 * (remainder - pc->seconds.tv_sec);
-      }
-  }
-
 
 static void
 digits_to_date (parser_control *pc, textint text_int)
@@ -390,6 +362,43 @@ apply_relative_time (parser_control *pc, relative_time rel, int factor)
   pc->rels_seen = true;
   return true;
 }
+
+static void
+decimal_to_time (parser_control *pc, hhmmss_decimal ts)
+  { textint int_part; int_part.digits = ts.digits;
+    int_part.value = ts.timespec.tv_sec;
+    int_part.negative = false;
+    digits_to_time (pc, int_part);
+    double decimal_part = (double) ts.timespec.tv_nsec / (double) BILLION;
+
+    fprintf(stderr, "Decimal part is %1.9f\n", decimal_part);
+    int seconds_multiplier;
+
+    relative_time decimal_part_rel = RELATIVE_TIME_0;
+    if (int_part.digits > 5)
+      {
+        pc->seconds.tv_nsec = ts.timespec.tv_nsec;
+      }
+    else
+      {
+        char rounded_str[sizeof("9999.999999999")];
+
+        if (int_part.digits > 3)
+            seconds_multiplier = 60;
+        else
+            seconds_multiplier = 3600;
+
+        const int precision = 9;
+        double seconds_with_fraction = seconds_multiplier * decimal_part;
+        sprintf(rounded_str, "%.*g", precision, seconds_with_fraction);
+        seconds_with_fraction = strtod(rounded_str, NULL);
+        fprintf(stderr, "Rounded Decimal part is %.9f\n", seconds_with_fraction);
+        decimal_part_rel.seconds = (intmax_t) (seconds_with_fraction);
+        decimal_part_rel.ns = (int) ((seconds_with_fraction - decimal_part_rel.seconds) * BILLION);
+        fprintf(stderr, "Applying %ld relative seconds and %d ns\n", decimal_part_rel.seconds, decimal_part_rel.ns);
+        apply_relative_time (pc, decimal_part_rel, 1);
+      }
+  }
 
 /* Set PC-> hour, minutes, seconds and nanoseconds members from arguments.  */
 static void
