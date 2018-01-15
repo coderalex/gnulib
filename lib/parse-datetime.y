@@ -778,9 +778,9 @@ iso_8601_time:
   | tUNUMBER ':' tUDECIMAL_NUMBER o_zone_offset
       {
         hhmmss_decimal hhmm;
-        hhmm.digits = $1.digits + $3.digits;
+        hhmm.timespec.tv_sec = $1.value * 100 + $3.timespec.tv_sec;
         hhmm.timespec.tv_nsec = $3.timespec.tv_nsec;
-        hhmm.timespec.tv_sec += $1.value * 100 + $3.timespec.tv_sec;
+        hhmm.digits = $1.digits + $3.digits;
         decimal_to_time (pc, hhmm);
         pc->meridian = MER24;
       }
