@@ -646,8 +646,8 @@ debug_print_relative_time (char const *item, parser_control const *pc)
 %parse-param { parser_control *pc }
 %lex-param { parser_control *pc }
 
-/* This grammar has 27 shift/reduce conflicts.  */
-%expect 27
+/* This grammar has 28 shift/reduce conflicts.  */
+%expect 28
 
 %union
 {
@@ -773,6 +773,15 @@ iso_8601_time:
     tUNUMBER ':' tUNUMBER o_zone_offset
       {
         set_hhmmss (pc, $1.value, $3.value, 0, 0);
+        pc->meridian = MER24;
+      }
+  | tUNUMBER ':' tUDECIMAL_NUMBER o_zone_offset
+      {
+        hhmmss_decimal hhmm;
+        hhmm.digits = $1.digits + $3.digits;
+        hhmm.timespec.tv_nsec = $3.timespec.tv_nsec;
+        hhmm.timespec.tv_sec += $1.value * 100 + $3.timespec.tv_sec;
+        decimal_to_time (pc, hhmm);
         pc->meridian = MER24;
       }
   | tUNUMBER ':' tUNUMBER ':' unsigned_seconds o_zone_offset
