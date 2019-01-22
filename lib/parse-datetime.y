@@ -298,15 +298,14 @@ digits_to_date (parser_control *pc, textint text_int)
       pc->year.value = text_int.value / 10000;
       pc->year.digits = text_int.digits - 4;
     }
-  else if (text_int.digits > 2)
-    {
-      pc->year = text_int;
-      pc->month = 1;
-      pc->day = 1;
-    }
   else
     {
-      pc->year.value = text_int.value * 100;
+      if (text_int.digits > 2)
+        pc->year = text_int;
+      else
+        pc->year.value = text_int.value * 100;
+      pc->month = 1;
+      pc->day = 1;
     }
 }
 
