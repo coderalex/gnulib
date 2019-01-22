@@ -1,23 +1,72 @@
 I present a patch to allow parse-datetime to -- finally -- accept
-dates in the ISO 8601 basic format.  that is, a time string consisting
-of only alphanumeric characters -- no spaces, no punctuation, suitable
-for use in fields that cannot contain spaces, hyphens, or colons.
+dates in the ISO 8601 basic format. This is a format allowing the
+expression of an absolute point in time with the resolution of a
+second with only alphanumeric characters -- no spaces, no punctuation,
+suitable for use in fields that cannot contain spaces, hyphens, or
+colons. As with the full format, the UTC time zone may be specified
+with a "Z". Other time offsets will require a hyphen or a plus
+sign, and fractions of time units may be expressed with the addition
+of a dot or comma.
 
-This will allow datetime strings of the following formats, all
-followed optionally by a zone offset:
+The general format is string of digits representing the date, followed
+by the letter "T" followed by a string of digits representing the time,
+optionally followed by a zone offset.
 
-YYYYMMDDThhmm, e.g. 20180102T0304, 20180102T0304Z, 20180102T1104-0800
-YYYYMMDDThhmmss, e.g. 20180102T030405
+This will allow datetime strings of the following formats:
 
-YYMMDDThhmm, e.g. 180102T0304 YYMMDDThhmmss, e.g. 180102T030405
+YYYYMMDDThhmm, e.g. 20190121T0304, 20180102T0304Z, 20180102T1104-0800
+YYYYMMDDThhmmss, e.g. 20190102T030405
 
-as well as:
+Decimal parts of seconds as well as minutes and hours are accepted
+(dot or comma may be used):
 
-YYYYThh, e.g., 2018T03 = 3AM on first day of 2018
+20180102T210729.068302473 = 2018-01-02T21:07:29,068302473
+19800615T1230.5 = 1980-06-15T12:30:30
+19660620T6,666666666 = 1966-06-20T06:40:00
 
-CCThh, e.g. 20T000001 = second minute of 21st century
+Two-digit year specifiers are also accepted following existing
+parse-datetime rules, so:
 
-In addition, decimal parts of seconds are accepted (dot or comma
-may be used):
+180102T0304   = 2018-01-02T03:04
+991231T2300   = 1999-12-31T23:00
+190120T030405 = 2019-01-20T03:04:05 
 
-20180102T210729.068302473
+
+Notes:
+
+In general accordance with the ISO 8601 standard, the number of
+digits to the left of the "T" determines how they are interpreted:
+
+9 = YYYYYMMDD
+8 =  YYYYMMDD
+7 =   YYYMMDD ?
+6 =    YYMMDD *
+5 =     YMMDD ?
+4 =      YYYY
+3 =       YYY ? 
+2 =        CC
+1 =         C ?
+
+* no longer supported by ISO 8601
+? not specified by ISO 8601
+
+For best compatibility, the number of digits to the left of "T"
+should be at least 8 (with leading zeroes for years before 1000 and
+additional digits for years after 9999).
+
+However, truncated 6-digit version is allowed, to be interpreted
+as YYMMDD with an implied century part determined by existing
+parse-datetime behavior of prefixing "19" to YY in range 69-99 and
+"20" to the rest. This interpretation is allowed in the second
+edition of ISO 8601 (published in 2000), but it was removed in the
+third (2004) edition.
+
+Also, ISO 8601 specifies that a four-digit date string is to be
+interpreted as a year, and a two-digit date string is to be interpreted
+as a century, to be multiplied by 100 to yield the year. Accordinlgy,
+a date string that imply no month or day (4 or fewer digits) is
+interpreted as the first day of the first month of the year indicated.
+
+YYYYThh e.g., 2018T03 = 3AM on the first day of 2018
+
+CCThhmmss, e.g. 20T000001 = one second into century "20" (year 2000).
