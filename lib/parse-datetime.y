@@ -976,12 +976,12 @@ iso_8601_date_T:
       iso_8601_date 'T'
     | tUNUMBER 'T'
       {
-        if ($1.digits == 6 || $1.digits == 8)
+        if ($1.digits == 6 || $1.digits >= 8)
             digits_to_date (pc, $1);
         else
           {
-            dbg_printf (_("error: digits in date (%"PRIdMAX") not 6 or 8\n"),
-              $1.digits);
+            dbg_printf (_("error: %"PRIdMAX" digits for date (%0*"PRIdMAX"); must be 6 (YYMMDD) or >= 8 ([Y*]YYYYMMDD)\n"),
+              $1.digits, (int) $1.digits, $1.value);
             YYABORT;
           }
       }
