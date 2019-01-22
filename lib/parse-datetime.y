@@ -287,6 +287,7 @@ digits_to_time (parser_control *pc, textint text_int)
   pc->meridian = MER24;
 }
 
+#define ALLOW_BARE_YEAR 0
 
 static void
 digits_to_date (parser_control *pc, textint text_int)
@@ -974,7 +975,16 @@ iso_8601_date:
 iso_8601_date_T:
       iso_8601_date 'T'
     | tUNUMBER 'T'
-      { digits_to_date (pc, $1); }
+      {
+        if ($1.digits == 6 || $1.digits == 8)
+            digits_to_date (pc, $1);
+        else
+          {
+            dbg_printf (_("error: digits in date (%"PRIdMAX") not 6 or 8\n"),
+              $1.digits);
+            YYABORT;
+          }
+      }
   ;
 
 
