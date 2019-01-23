@@ -5,8 +5,11 @@ second with only alphanumeric characters -- no spaces, no punctuation,
 suitable for use in fields that cannot contain spaces, hyphens, or
 colons. As with the full format, the UTC time zone may be specified
 with a "Z". Other time offsets will require a hyphen or a plus
-sign, and fractions of time units may be expressed with the addition
-of a dot or comma.
+sign, and fractions of time units including those other than seconds
+may be expressed with the addition of a dot or comma. The ability
+to express fractions of a minute as a decimal is also made available
+to the extended format.
+
 
 The general format is string of digits representing the date, followed
 by the letter "T" followed by a string of digits representing the time,
@@ -20,53 +23,18 @@ YYYYMMDDThhmmss, e.g. 20190102T030405
 Decimal parts of seconds as well as minutes and hours are accepted
 (dot or comma may be used):
 
-20180102T210729.068302473 = 2018-01-02T21:07:29,068302473
-19800615T1230.5 = 1980-06-15T12:30:30
-19660620T6,666666666 = 1966-06-20T06:40:00
+20180102T210729.068302473             = 2018-01-02T21:07:29,068302473
+19800615T1230.25, 1980-06-15T12:30.25 = 1980-06-15T12:30:15
+19800615T12.25                        = 1980-06-15T12:15:00
+19660620T06,666666666                 = 1966-06-20T06:40:00
 
 Two-digit year specifiers are also accepted following existing
-parse-datetime rules, so:
+parse-datetime rules (69-99 = 1969-1999, 00-68 = 2000-2068), so:
 
 180102T0304   = 2018-01-02T03:04
 991231T2300   = 1999-12-31T23:00
 190120T030405 = 2019-01-20T03:04:05 
 
-
-Notes:
-
-In general accordance with the ISO 8601 standard, the number of
-digits to the left of the "T" determines how they are interpreted:
-
-9 = YYYYYMMDD
-8 =  YYYYMMDD
-7 =   YYYMMDD ?
-6 =    YYMMDD *
-5 =     YMMDD ?
-4 =      YYYY
-3 =       YYY ? 
-2 =        CC
-1 =         C ?
-
-* no longer supported by ISO 8601
-? not specified by ISO 8601
-
-For best compatibility, the number of digits to the left of "T"
-should be at least 8 (with leading zeroes for years before 1000 and
-additional digits for years after 9999).
-
-However, truncated 6-digit version is allowed, to be interpreted
-as YYMMDD with an implied century part determined by existing
-parse-datetime behavior of prefixing "19" to YY in range 69-99 and
-"20" to the rest. This interpretation is allowed in the second
-edition of ISO 8601 (published in 2000), but it was removed in the
-third (2004) edition.
-
-Also, ISO 8601 specifies that a four-digit date string is to be
-interpreted as a year, and a two-digit date string is to be interpreted
-as a century, to be multiplied by 100 to yield the year. Accordinlgy,
-a date string that imply no month or day (4 or fewer digits) is
-interpreted as the first day of the first month of the year indicated.
-
-YYYYThh e.g., 2018T03 = 3AM on the first day of 2018
-
-CCThhmmss, e.g. 20T000001 = one second into century "20" (year 2000).
+Note use of two-digit year specifiers in both basic and extended formats
+is allowed in the second edition of ISO 8601 (published in 2000), but it
+has been removed as of the third (2004) edition.
