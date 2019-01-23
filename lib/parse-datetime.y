@@ -287,7 +287,6 @@ digits_to_time (parser_control *pc, textint text_int)
   pc->meridian = MER24;
 }
 
-
 static void
 digits_to_date (parser_control *pc, textint text_int)
 {
@@ -300,12 +299,23 @@ digits_to_date (parser_control *pc, textint text_int)
     }
   else
     {
-      if (text_int.digits > 2)
-        pc->year = text_int;
-      else
-        pc->year.value = text_int.value * 100;
-      pc->month = 1;
+      /* ISO 8601 says:
+           4 digit date string = year and
+           2 digit date string = century (multiply by 100 years).
+         Here we accommodate this as well as accept 3 digits
+         as year and 1 digit as century.
+
+         Note this section is provided for theoretical completeness and
+         future use, as every current caller of this function ensures
+         text_int.digits > 4. */
       pc->day = 1;
+      pc->month = 1;
+      pc->year = text_int;
+      if (text_int.digits <= 2)
+        {
+          pc->year.value = text_int.value * 100;
+          pc->year.digits = text_int.digits + 2;
+        }
     }
 }
 
@@ -974,7 +984,17 @@ iso_8601_date:
 iso_8601_date_T:
       iso_8601_date 'T'
     | tUNUMBER 'T'
-      { digits_to_date (pc, $1); }
+      {
+        if ($1.digits == 6 || $1.digits >= 8)
+            digits_to_date (pc, $1);
+        else
+          {
+            dbg_printf (_("error: %"PRIdMAX" digits for date (%0*"PRIdMAX"): "
+            "must be 6 (YYMMDD) or >= 8 ([Y*]YYYYMMDD)\n"),
+              $1.digits, (int) $1.digits, $1.value);
+            YYABORT;
+          }
+      }
   ;
 
 
