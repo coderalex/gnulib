@@ -374,16 +374,15 @@ apply_relative_time (parser_control *pc, relative_time rel, int factor)
 
 static void
 decimal_to_time (parser_control *pc, hhmmss_decimal ts)
-  { textint int_part; int_part.digits = ts.digits;
+{
+    textint int_part; int_part.digits = ts.digits;
     int_part.value = ts.timespec.tv_sec;
     int_part.negative = false;
     digits_to_time (pc, int_part);
     double decimal_part = (double) ts.timespec.tv_nsec / (double) BILLION;
-
-    fprintf(stderr, "Decimal part is %1.9f\n", decimal_part);
     int seconds_multiplier;
-
     relative_time decimal_part_rel = RELATIVE_TIME_0;
+
     if (int_part.digits > 5)
       {
         pc->seconds.tv_nsec = ts.timespec.tv_nsec;
@@ -401,10 +400,8 @@ decimal_to_time (parser_control *pc, hhmmss_decimal ts)
         double seconds_with_fraction = seconds_multiplier * decimal_part;
         sprintf(rounded_str, "%.*g", precision, seconds_with_fraction);
         seconds_with_fraction = strtod(rounded_str, NULL);
-        fprintf(stderr, "Rounded Decimal part is %.9f\n", seconds_with_fraction);
         decimal_part_rel.seconds = (intmax_t) (seconds_with_fraction);
         decimal_part_rel.ns = (int) ((seconds_with_fraction - decimal_part_rel.seconds) * BILLION);
-        fprintf(stderr, "Applying %ld relative seconds and %d ns\n", decimal_part_rel.seconds, decimal_part_rel.ns);
         apply_relative_time (pc, decimal_part_rel, 1);
       }
   }
