@@ -129,6 +129,26 @@ main (int argc _GL_UNUSED, char **argv)
   gmtoff = gmt_offset (ref_time);
 
 
+  /* ISO 8601 basic date and time of day representation,
+     'T' separator, local time zone */
+  p = "20110501T115518";
+  expected.tv_sec = ref_time - gmtoff;
+  expected.tv_nsec = 0;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
+
+  /* ISO 8601 basic date and time of day representation,
+     ' ' separator, local time zone */
+  p = "20110501 115518";
+  expected.tv_sec = ref_time - gmtoff;
+  expected.tv_nsec = 0;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
+
   /* ISO 8601 extended date and time of day representation,
      'T' separator, local time zone */
   p = "2011-05-01T11:55:18";
@@ -149,6 +169,26 @@ main (int argc _GL_UNUSED, char **argv)
   ASSERT (expected.tv_sec == result.tv_sec
           && expected.tv_nsec == result.tv_nsec);
 
+
+  /* ISO 8601, basic date and time of day representation,
+     'T' separator, UTC */
+  p = "20110501T115518Z";
+  expected.tv_sec = ref_time;
+  expected.tv_nsec = 0;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
+
+  /* ISO 8601, basic date and time of day representation,
+     ' ' separator, UTC */
+  p = "20110501 115518Z";
+  expected.tv_sec = ref_time;
+  expected.tv_nsec = 0;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
 
   /* ISO 8601, extended date and time of day representation,
      'T' separator, UTC */
@@ -173,6 +213,19 @@ main (int argc _GL_UNUSED, char **argv)
 
   /* ISO 8601 extended date and time of day representation,
      'T' separator, w/UTC offset */
+  p = "20110501T115518-0700";
+  expected.tv_sec = 1304276118;
+  expected.tv_nsec = 0;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
+
+  /* ISO 8601 extended date and time of day representation,
+     ' ' separator, w/UTC offset NOT SUPPORTED */
+
+  /* ISO 8601 extended date and time of day representation,
+     'T' separator, w/UTC offset */
   p = "2011-05-01T11:55:18-07:00";
   expected.tv_sec = 1304276118;
   expected.tv_nsec = 0;
@@ -191,6 +244,19 @@ main (int argc _GL_UNUSED, char **argv)
   ASSERT (expected.tv_sec == result.tv_sec
           && expected.tv_nsec == result.tv_nsec);
 
+
+  /* ISO 8601 basic date and time of day representation,
+     'T' separator, w/hour only UTC offset */
+  p = "20110501T115518-07";
+  expected.tv_sec = 1304276118;
+  expected.tv_nsec = 0;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
+
+  /* ISO 8601 basic date and time of day representation,
+     ' ' separator, w/hour only UTC offset NOT SUPPORTED */
 
   /* ISO 8601 extended date and time of day representation,
      'T' separator, w/hour only UTC offset */
