@@ -155,7 +155,7 @@ typedef struct
   ptrdiff_t digits;
 } textint;
 
-/* A decimal value, and the number of digits in the decimal part of
+/* A decimal value, and the number of digits in the integer part of
    its textual representation.  */
 typedef struct
 {
@@ -373,19 +373,20 @@ apply_relative_time (parser_control *pc, relative_time rel, int factor)
 }
 
 static void
-decimal_to_time (parser_control *pc, hhmmss_decimal ts)
+decimal_to_time (parser_control *pc, hhmmss_decimal hd)
 {
-    textint int_part; int_part.digits = ts.digits;
-    int_part.value = ts.timespec.tv_sec;
+    textint int_part;
+    int_part.digits = hd.digits;
+    int_part.value = hd.timespec.tv_sec;
     int_part.negative = false;
     digits_to_time (pc, int_part);
-    double decimal_part = (double) ts.timespec.tv_nsec / (double) BILLION;
+    double decimal_part = (double) hd.timespec.tv_nsec / (double) BILLION;
     int seconds_multiplier;
     relative_time decimal_part_rel = RELATIVE_TIME_0;
 
     if (int_part.digits > 5)
       {
-        pc->seconds.tv_nsec = ts.timespec.tv_nsec;
+        pc->seconds.tv_nsec = hd.timespec.tv_nsec;
       }
     else
       {
