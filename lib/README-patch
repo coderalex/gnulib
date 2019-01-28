@@ -1,31 +1,43 @@
-I present a patch to allow parse-datetime to -- finally -- accept
-dates in the ISO 8601 basic format. This is a format allowing the
-expression of an absolute point in time with the resolution of a
-second with only alphanumeric characters -- no spaces, no punctuation,
-suitable for use in fields that cannot contain spaces, hyphens, or
-colons. As with the full format, the UTC time zone may be specified
-with a "Z". Other time offsets will require a hyphen or a plus
-sign, and fractions of time units including those other than seconds
-may be expressed with the addition of a dot or comma. The ability
-to express fractions of a minute as a decimal is also made available
-to the extended format.
+I present a patch to allow parse-datetime to:
+
+1. Accept dates in the ISO 8601 basic date and time format. This
+is a format allowing the expression of an absolute point in time
+with the resolution of a second with only alphanumeric characters
+-- no spaces, no punctuation, suitable for use in fields that cannot
+contain spaces, hyphens, or colons. As with the extended format
+currently accepted by parse-datetime, the UTC time zone may be
+specified with a "Z". Other time offsets will require a hyphen or
+a plus sign.
+
+2. Accept decimal fractions of time units other than seconds in
+accordance with ISO 8601. Currently only decimal fractions of a
+second are accepted. Now the decimal separator may be used for the
+expression of fractions of a minute (in both basic and extended
+formats) as well as fractions of an hour.
 
 
-The general format is string of digits representing the date, followed
-by the letter "T" followed by a string of digits representing the time,
-optionally followed by a zone offset.
+The ISO 8601 basic date and time format consists of digits representing
+the date, followed by the letter "T" followed by a string of digits
+(optionally including a dot or comma as decimal separator) representing
+the time of day, optionally followed by a zone offset. Note a variant of
+this format, where the separator is " " instead of "T" is already accepted
+by parse-datetime; however, this format does not accept zone offset.
 
-This will allow datetime strings of the following formats:
 
-YYYYMMDDThhmm, e.g. 20190121T0304, 20180102T0304Z, 20180102T1104-0800
+This will allow datetime strings of the following forms:
+
 YYYYMMDDThhmmss, e.g. 20190102T030405
+YYYYMMDDThhmm, e.g. 20190121T0304, 20180102T0304Z, 20180102T1104-0800
+YYYYMMDDThh, e.g. 20190121T03, 20180102T03Z, 20180102T11-0800
 
-Decimal parts of seconds as well as minutes and hours are accepted
-(dot or comma may be used):
+The optional decimal part is interpreted as a fraction of a second, a minute,
+or an hour, corresponding to what the previous two digits represent:
 
 20180102T210729.068302473             = 2018-01-02T21:07:29,068302473
-19800615T1230.25, 1980-06-15T12:30.25 = 1980-06-15T12:30:15
+19800615T1230.25                      = 1980-06-15T12:30:15
+1980-06-15T12:30,25                   =          "
 19800615T12.25                        = 1980-06-15T12:15:00
+1980-06-15T12:00.875                  = 1980-06-15T12:00:52,5
 19660620T06,666666666                 = 1966-06-20T06:40:00
 
 Two-digit year specifiers are also accepted following existing
@@ -33,8 +45,72 @@ parse-datetime rules (69-99 = 1969-1999, 00-68 = 2000-2068), so:
 
 180102T0304   = 2018-01-02T03:04
 991231T2300   = 1999-12-31T23:00
-190120T030405 = 2019-01-20T03:04:05 
+190120T030405 = 2019-01-20T03:04:05
 
 Note use of two-digit year specifiers in both basic and extended formats
 is allowed in the second edition of ISO 8601 (published in 2000), but it
 has been removed as of the third (2004) edition.
+
+
+1. The current version of parse-datetime already accepts input in
+ISO 8061 basic format with the " " separator to a limited extent.
+It works with time strings of the form "hh" and "hhmm" but not "hhmmss".
+Furthermore, when zone offset is added (e.g. -05:00 or +03, but not zone
+names such as Z, UTC, or EST), unexpected behavior results when the
+In particular, the time digits are always interpreted as number of hours,
+so four digits would be intepreted as "hhhh" not "hhmm".
+
+With the patch, cases of basic format with " " separator can be used with
+form hhmmss (as well as hhmmss.n+) and use zone offset here
+is uniformly rejected as invalid:
+
+input                  current output              output with patch
+"20180102 00-03"       2018-01-02T03:00+00 +       (rejected)
+"20180102 04-03"       2018-01-02T07:00+00 +       (rejected)
+"20180102 0004-03"     2018-01-02T07:00+00 *       (rejected)
+"20180102 0004+00"     2018-01-02T04:00+00 *       (rejected)
+"20180102 0004Z"       2018-01-02T00:04+00 ++      (rejected)
+"20180102 0040-05"     (rejected) **               (rejected)
+"20180102 0040 EST"    2018-01-02T05:40+00 +++     (rejected)
+
++ correct with two-digit time (hh) and zone offset.
+* incorrect with zone offset: 0004 interpreted as 4 h (leading zeroes ignored)
+++ correct with zone name: 0004 interpreted as 00:04
+** rejected with zone offset: 0040 interpreted as 40 h (invalid hour of day)
++++ correct with zone name: 0040 interpreted as 00:40
+
+With the patch all corresponding expressions with the "T"
+separator are accepted and correctly interpreted :
+
+input                  current output              output with patch
+"20180102T00-03"       (rejected)                  2018-01-02T03:00+00
+"20180102T04-03"       (rejected)                  2018-01-02T07:00+00
+"20180102T0004-03"     (rejected)                  2018-01-02T03:04+00
+"20180102T0004+00"     (rejected)                  2018-01-02T00:04+00
+"20180102T0004Z"       (rejected)                  2018-01-02T00:04+00
+"20180102T0040-05"     (rejected)                  2018-01-02T05:40+00
+"20180102T0040 EST"    (rejected)                  2018-01-02T05:40+00
+
+2. For inputs of form "(YY)YYMMDD'T'hhm" the current version of parse-datetime
+interprets the 'T' as the single letter military time zone identifier
+equivalent to zone offset +0700. This is probably never the intention.
+
+input (TZ=UTC)         current output                output with patch
+"19691231T0700"        1969-12-31T00:00+00 *         1969-12-31T07:00+00
+"19691231T0700Z"       (rejected) **                 1969-12-31T07:00+00
+
+* "T" interpreted as +0700
+** rejected because two zone identifiers were recognized ("T" and "Z")
+
+3. Unfortunately, for time zone name "T", with the patch, the form
+"mmss 'T'" is incorrectly parsed and rejected. Other military time zones
+work fine in this position, and the zone name works fine with colon-separated
+times:
+
+input                  current output                output with patch
+"19691231 07:00 T"     1969-12-31T00:00+00           1969-12-31T00:00+00
+"19691231 0700 T"      1969-12-31T00:00+00           (rejected) *
+"19691231 0600 S"      1969-12-31T00:00+00           1969-12-31T00:00+00
+
+* bug: new parser rules force date-time separator interpretation
++ other zone names work fine in this position
