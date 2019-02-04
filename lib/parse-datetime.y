@@ -653,8 +653,8 @@ debug_print_relative_time (char const *item, parser_control const *pc)
 %parse-param { parser_control *pc }
 %lex-param { parser_control *pc }
 
-/* This grammar has 28 shift/reduce conflicts.  */
-%expect 28
+/* This grammar has 31 shift/reduce conflicts.  */
+%expect 31
 
 %union
 {
@@ -742,6 +742,10 @@ item:
       {
         debug_print_current_time (_("number"), pc);
       }
+  | number_T
+      {
+        debug_print_current_time (_("number_t"), pc);
+      }
   | hybrid
       {
         debug_print_relative_time (_("hybrid"), pc);
@@ -755,6 +759,8 @@ datetime:
 iso_8601_datetime:
     iso_8601_date_T iso_8601_time
   | iso_8601_date_T time_number o_zone_offset
+  | number_T time_number o_zone_offset
+  | number_T iso_8601_time
   ;
 
 time:
@@ -980,11 +986,22 @@ iso_8601_date:
   ;
 
 iso_8601_date_T:
-      iso_8601_date 'T'
-    | tUNUMBER 'T'
+    iso_8601_date 'T'
+
+number_T:
+    tUNUMBER 'T'
       {
-        if ($1.digits == 6 || $1.digits >= 8)
+        if ($1.digits == 4 || (pc->dates_seen))
+          {
+            digits_to_time (pc, $1);
+            pc->time_zone = HOUR (7);
+            pc->zones_seen++;
+            pc->times_seen++;
+          }
+        else if ($1.digits == 6 || $1.digits >= 8)
+          {
             digits_to_date (pc, $1);
+          }
         else
           {
             dbg_printf (_("error: %"PRIdMAX" digits for date (%0*"PRIdMAX"): "

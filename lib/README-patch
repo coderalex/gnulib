@@ -101,16 +101,3 @@ input (TZ=UTC)         current output                output with patch
 
 * "T" interpreted as +0700
 ** rejected because two zone identifiers were recognized ("T" and "Z")
-
-3. Unfortunately, for time zone name "T", with the patch, the form
-"mmss 'T'" is incorrectly parsed and rejected. Other military time zones
-work fine in this position, and the zone name works fine with colon-separated
-times:
-
-input                  current output                output with patch
-"19691231 07:00 T"     1969-12-31T00:00+00           1969-12-31T00:00+00
-"19691231 0700 T"      1969-12-31T00:00+00           (rejected) *
-"19691231 0600 S"      1969-12-31T00:00+00           1969-12-31T00:00+00
-
-* bug: new parser rules force date-time separator interpretation
-+ other zone names work fine in this position
