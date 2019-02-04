@@ -188,7 +188,8 @@ Here are the rules.
 @cindex ISO 8601 date format
 @cindex date format, ISO 8601
 For numeric months, the ISO 8601 format
-@samp{@var{year}-@var{month}-@var{day}} is allowed, where @var{year} is
+@samp{@var{year}-@var{month}-@var{day}} is allowed, with ("extended"
+format) or without ("basic" format) dashes, where @var{year} is
 any positive number, @var{month} is a number between 01 and 12, and
 @var{day} is a number between 01 and 31.  A leading zero must be present
 if a number is less than ten.  If @var{year} is 68 or smaller, then 2000
@@ -322,14 +323,14 @@ timestamps are interpreted using the rules of the default time zone
 @cindex ISO 8601 date and time of day format
 @cindex date and time of day format, ISO 8601
 
-The ISO 8601 date and time of day extended format consists of an ISO
-8601 date, a @samp{T} character separator, and an ISO 8601 time of
-day.  This format is also recognized if the @samp{T} is replaced by a
-space.
+The ISO 8601 date and time of day format consists of an ISO 8601 date
+(with or without hyphens), a @samp{T} character separator, and
+an ISO 8601 time of day (with or without colons).  This format is
+also recognized if the @samp{T} is replaced by a space.
 
 In this format, the time of day should use 24-hour notation.
 Fractional seconds are allowed, with either comma or period preceding
-the fraction.  ISO 8601 fractional minutes and hours are not
+the fraction.  ISO 8601 fractional minutes and hours are also
 supported.  Typically, hosts support nanosecond timestamp resolution;
 excess precision is silently discarded.
 
@@ -339,6 +340,10 @@ Here are some examples:
 2012-09-24T20:02:00.052-05:00
 2012-12-31T23:59:59,999999999+11:00
 1970-01-01 00:00Z
+19700101T0000Z
+20380118 03:14:07,5
+2038-01-18T03.125
+20380118T03.235416667
 @end example
 
 @node Day of week items
