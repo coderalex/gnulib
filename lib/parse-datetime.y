@@ -744,7 +744,10 @@ item:
       }
   | number_T
       {
-        debug_print_current_time (_("number_t"), pc);
+        pc->time_zone = HOUR (7);
+        pc->zones_seen++;
+        if (! pc->times_seen) pc->dates_seen++;
+        debug_print_current_time (_("number_T"), pc);
       }
   | hybrid
       {
@@ -992,12 +995,13 @@ number_T:
     tUNUMBER 'T'
       {
         if ($1.digits == 4 || (pc->dates_seen))
+        /* Number is a time.  Here 'T' must be a military time zone  */
           {
             digits_to_time (pc, $1);
-            pc->time_zone = HOUR (7);
-            pc->zones_seen++;
             pc->times_seen++;
           }
+        /* Number is a date.  Here 'T' could be either military time zone
+           or a date-time separator  */
         else if ($1.digits == 6 || $1.digits >= 8)
           {
             digits_to_date (pc, $1);
