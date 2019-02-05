@@ -994,7 +994,7 @@ iso_8601_date_T:
 number_T:
     tUNUMBER 'T'
       {
-        if ($1.digits == 4 || (pc->dates_seen))
+        if ($1.digits <= 4 || (pc->dates_seen))
         /* Number is a time.  Here 'T' must be a military time zone  */
           {
             digits_to_time (pc, $1);
@@ -1002,16 +1002,9 @@ number_T:
           }
         /* Number is a date.  Here 'T' could be either military time zone
            or a date-time separator  */
-        else if ($1.digits == 6 || $1.digits >= 8)
-          {
-            digits_to_date (pc, $1);
-          }
         else
           {
-            dbg_printf (_("error: %"PRIdMAX" digits for date (%0*"PRIdMAX"): "
-            "must be 6 (YYMMDD) or >= 8 ([Y*]YYYYMMDD)\n"),
-              $1.digits, (int) $1.digits, $1.value);
-            YYABORT;
+            digits_to_date (pc, $1);
           }
       }
   ;
