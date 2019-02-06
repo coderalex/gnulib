@@ -279,6 +279,55 @@ main (int argc _GL_UNUSED, char **argv)
           && expected.tv_nsec == result.tv_nsec);
 
 
+  /* decimal seconds */
+  p = "2038-01-19 03:14:07,44 UTC";
+  expected.tv_sec = 2147483647;
+  expected.tv_nsec = 440000000;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
+
+  /* decimal minutes */
+  p = "2038-01-19 03:14.124 UTC";
+  expected.tv_sec = 2147483647;
+  expected.tv_nsec = 440000000;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
+
+  /* decimal hours */
+  p = "2038-01-19 03.2354 UTC";
+  expected.tv_sec = 2147483647;
+  expected.tv_nsec = 440000000;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
+
+
+  /* Leading zeroes are significant.  */
+
+  /* first century and decimal seconds */
+  p = "00010101T001010.1Z"; /* = 0001-01-01T00:10:10,1+00:00 */
+  expected.tv_sec = -62135596190;
+  expected.tv_nsec = 100000000;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
+
+  /* twenty-first century and decimal minutes */
+  p = "010101T1010.1Z"; /* = 2001-01-01T10:10:06+00:00  */
+  expected.tv_sec = 978343806;
+  expected.tv_nsec = 0;
+  ASSERT (parse_datetime (&result, p, 0));
+  LOG (p, expected, result);
+  ASSERT (expected.tv_sec == result.tv_sec
+          && expected.tv_nsec == result.tv_nsec);
+
+
   now.tv_sec = 4711;
   now.tv_nsec = 1267;
   p = "now";
