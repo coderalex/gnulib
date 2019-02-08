@@ -8,28 +8,29 @@ contain spaces, hyphens, or colons.
 
 2. Accept decimal fractions of time units other than seconds in
 accordance with ISO 8601. Currently only decimal fractions of a
-second are accepted. Now the decimal separator may be used for the
-expression of fractions of a minute (in both basic and extended
-formats) as well as fractions of an hour.
+second are accepted. With the patch, the decimal separator may be
+used for the expression of fractions of a minute (in both basic and
+extended formats) as well as fractions of an hour.
 
 
 The ISO 8601 basic date and time format consists of digits representing
 the date, followed by the letter "T" followed by a string of digits
 (optionally including a dot or comma as decimal separator) representing
-the time of day, optionally followed by a zone offset or "Z" for zero
-offset (UTC). Note a variant of this format, where the separator is " "
-instead of "T" is already accepted by parse-datetime; however, parse_datetime
-rejects numeric offsets with this format (and the patch does not
-change this).
+the time of day, optionally followed by a zone offset or "Z" for
+zero offset (UTC). Note a variant of this format, where the separator
+is " " instead of "T" is already accepted by parse-datetime; however,
+parse-datetime rejects zone offsets with this format; it only accepts
+zone names (and the patch does not change this).
 
-The patch will allow parse_datetime to accept strings of the following forms:
+The patch will allow parse-datetime to accept strings of the following forms:
 
 YYYYMMDDThhmmss[Z]: 20190102T030405, 20180102T030405Z, 20180102T110405-0800
 YYYYMMDDThhmm[Z]: 20190121T0304, 20180102T0304Z, 20180102T1104-0800
 YYYYMMDDThh[Z]:  20190121T03, 20180102T03Z, 20180102T11-0800
 
-The optional decimal part is interpreted as a fraction of a second, a minute,
-or an hour, corresponding to what the previous two digits represent:
+The optional decimal part is interpreted as a fraction of a second,
+a minute, or an hour, corresponding to what the previous two digits
+represent:
 
 20180102T210729.068302473             = 2018-01-02T21:07:29,068302473
 19800615T1230.25                      = 1980-06-15T12:30:15
@@ -50,15 +51,15 @@ is allowed in the second edition of ISO 8601 (published in 2000), but it
 has been removed as of the third (2004) edition.
 
 
-Subtle differences of behavior introduced by the patch:
+Forms no longer accepted as a result of the patch:
 
 1. The current version of parse-datetime already accepts input in
 ISO 8061 basic format with the " " separator to a limited extent.
 It works with time strings of the form "hh" and "hhmm" but not "hhmmss".
 Furthermore, when zone offset is added (e.g. -05:00 or +03, but not zone
-names such as Z, UTC, or EST), unexpected behavior results when the
-In particular, the time digits are always interpreted as number of hours,
-so four digits would be intepreted as "hhhh" not "hhmm".
+names such as Z, UTC, or EST), the results are sometimes accepted, but
+often incorrect.  n particular, the time digits are always interpreted as
+number of hours, so four digits would be intepreted as "hhhh" not "hhmm".
 
 With the patch, cases of basic format with " " separator can be used with
 form hhmmss (as well as hhmmss.n+) and use zone offset here
@@ -106,7 +107,7 @@ input (TZ=UTC)         current output              output with patch
 is surrounded by digits and the input is rejected (because it is not
 a valid ISO 8601 basic format date), while with another zone
 name in its place the input is accepted; whereas both forms are
-accepted equally by the current parse_datetime. Again, such cases are
+accepted equally by the current parse-datetime. Again, such cases are
 probably unlikely to occur as intentional input.
 
 input                  current output              output with patch
