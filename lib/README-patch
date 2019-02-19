@@ -1,4 +1,4 @@
-I present a patch to allow parse-datetime to:
+ISO 8601 basic format and decimal hours, minutes
 
 1. Accept dates in the ISO 8601 basic date and time format. This
 is a format allowing the expression of point in time to the resolution
